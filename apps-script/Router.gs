@@ -1,0 +1,69 @@
+/**
+ * Router.gs — parse perintah & dispatch ke handler (§D).
+ * Dipanggil dari Main.doPost setelah gerbang whitelist.
+ */
+
+function route(text, chatId) {
+  var t = text.trim();
+
+  // Pesan tanpa awalan '/' → jalur bahasa natural (AI).
+  if (t.charAt(0) !== '/') { handleNatural(t, chatId); return; }
+
+  var tokens = t.split(/\s+/);
+  var cmd = tokens[0].toLowerCase();
+  var args = tokens.slice(1);
+
+  switch (cmd) {
+    case '/ping':   sendMessage(chatId, 'pong'); break;
+    case '/start':
+    case '/help':   sendMessage(chatId, helpText()); break;
+
+    // Fase 1 — capture
+    case '/keluar': cmdUang('keluar', args, chatId); break;
+    case '/masuk':  cmdUang('masuk', args, chatId); break;
+    case '/tugas':  cmdTugas(args, chatId); break;
+    case '/catat':  cmdCatat(text, chatId); break;
+    case '/selesai': cmdSelesai(args, chatId); break;
+    case '/cari':   cmdCari(args, chatId); break;
+
+    // Quality of life — daftar, rekap, edit & hapus
+    case '/daftar': cmdDaftar(args, chatId); break;
+    case '/rekap':  cmdRekap(args, chatId); break;
+    case '/edit':   cmdEdit(args, chatId); break;
+    case '/hapus':  cmdHapus(args, chatId); break;
+
+    // Lapisan AI — konfirmasi aksi tertunda
+    case '/ya':     confirmPending(chatId); break;
+    case '/tidak':
+    case '/batal':  cancelPending(chatId); break;
+
+    default:
+      sendMessage(chatId, 'Perintah tidak dikenal. Kirim /help untuk daftar.');
+  }
+}
+
+function helpText() {
+  return [
+    'Asisten Pribadi — perintah:',
+    '/keluar <nominal> <kategori> [ket] [#tgl]',
+    '/masuk <nominal> <kategori> [ket] [#tgl]',
+    '/tugas <teks> [#YYYY-MM-DD]',
+    '/daftar [semua] (lihat tugas)',
+    '/selesai <id-tugas>',
+    '/catat <teks>',
+    '/cari <kata> (berkas Drive)',
+    '/rekap [YYYY-MM] (ringkasan bulan)',
+    '/edit terakhir|tugas <id>|catatan … (perbaiki)',
+    '/hapus terakhir | tugas <id> | bulan YYYY-MM',
+    '/ping',
+    '',
+    'Backfill tanggal: #kemarin, #2harilalu, #YYYY-MM-DD',
+    '',
+    'Atau ketik bebas (AI), tanpa garis miring:',
+    '· "tadi jajan kopi 25rb"',
+    '· "rekap keuangan bulan ini"',
+    '· "tugas T-0001 sudah selesai"',
+    '· "hapus transaksi terakhir"',
+    'Untuk simpan/hapus, bot minta konfirmasi → /ya atau /tidak.'
+  ].join('\n');
+}
