@@ -17,7 +17,7 @@ function doPost(e) {
     cache.put(dedupeKey, '1', 600); // ingat 10 menit
 
     var msg = update.message || update.edited_message;
-    if (!msg || !msg.text) return ok();
+    if (!msg) return ok();
 
     var chatId = msg.chat.id;
 
@@ -27,7 +27,11 @@ function doPost(e) {
       return ok();
     }
 
-    route(msg.text.trim(), chatId);
+    // Foto/gambar → jalur pembacaan gambar (Vision). Selain itu, teks → router.
+    var fileId = photoFileId(msg);
+    if (fileId) { handlePhoto(msg, fileId, chatId); return ok(); }
+    if (msg.text) { route(msg.text.trim(), chatId); return ok(); }
+    return ok();
   } catch (err) {
     logEvent('ERROR', 'doPost_error', String(err));
   }

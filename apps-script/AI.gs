@@ -48,8 +48,13 @@ function geminiParse(text) {
     'Kamu pengurai untuk asisten keuangan & tugas pribadi berbahasa Indonesia.',
     'Ubah pesan pengguna menjadi SATU aksi terstruktur sesuai skema.',
     'intent: "keluar"=pengeluaran uang, "masuk"=pemasukan uang, "tugas"=hal yang harus dilakukan, "catat"=catatan bebas, "cari"=mencari berkas/file di Drive, "rekap"=minta ringkasan/laporan keuangan, "selesai"=menandai tugas sudah selesai, "hapus"=menghapus data, "daftar"=minta lihat daftar tugas, "unknown"=tidak yakin.',
-    'keluar/masuk: nominal = angka rupiah (ubah "25rb"->25000, "1,5jt"->1500000, "10k"->10000); kategori WAJIB diisi dengan salah satu dari daftar yang PALING cocok; bila benar-benar tak ada yang pas isi "lainnya". JANGAN pernah mengosongkan kategori. keterangan = ringkas. tanggal = YYYY-MM-DD HANYA bila pengguna menyebut waktu lampau ("kemarin", "2 hari lalu", tanggal tertentu); bila tidak disebut KOSONGKAN (artinya hari ini = ' + today + ').',
+    'keluar/masuk: nominal = angka rupiah (ubah "25rb"->25000, "1,5jt"->1500000, "10k"->10000); kategori WAJIB diisi dengan salah satu dari daftar yang PALING cocok; bila benar-benar tak ada yang pas isi "lainnya". JANGAN pernah mengosongkan kategori. keterangan = ringkas. tanggal = YYYY-MM-DD HANYA bila pengguna menyebut waktu lampau ("kemarin"/"kemaren"/"kmrn", "2 hari lalu", "minggu lalu", tanggal tertentu); "td"/"tadi"/"barusan" = hari ini (KOSONGKAN); bila tidak disebut KOSONGKAN (hari ini = ' + today + ').',
     'Daftar kategori — ' + kategoriListText() + '.',
+    'WAJIB paham Bahasa Indonesia santai/gaul, singkatan, & typo umum.',
+    'Uang gaul/singkatan: "rb"/"ribu"/"rebu"/"k"=ribu; "jt"/"juta"=juta; "ceban"=10000; "goceng"=5000; "seceng"=1000; "cepek"=100; "gopek"=500; "gocap"=50000. Contoh "abis goceng"->5000, "gajian 5jt"->5000000, "kopi 2rb"->2000.',
+    'Kata ganti/umum: "gw/gue/ane/aku/sy/saya"=pengguna; "duit/duwit/cuan/fulus"=uang; "tf/transfer"=transaksi transfer; "byr/bayar"=pengeluaran; "gajian/gaji cair/gaji masuk"=pemasukan gaji.',
+    'Sinonim kategori (pakai untuk menebak kategori): "jajan/jajanan/ngemil/nongki/makan siang"=makan; "bensin/bbm/ojek/ojol/grab/gojek/gocar/parkir/tol"=transport; "pulsa/kuota/paket data/wifi"=pulsa; "token listrik/pln/pdam/air/internet rumah"=tagihan atau rumah; "sedekah/zakat/infaq/donasi"=sedekah; "obat/dokter/rs/klinik"=kesehatan; "sekolah/kuliah/kursus/spp/buku"=pendidikan.',
+    'Intent gaul/singkatan: "catetin/catet dong/notes"=catat; "ingetin/ingatin/jangan lupa/reminder/todo"=tugas; "cariin/carikan/search"=cari; "abis berapa sih/laporan dong/cek keuangan/rekap dong"=rekap; "apus/apusin/ilangin/delete/del"=hapus; "kelarin/udah beres/rampung/done"=selesai; "liat tugas/ada tugas apa/todo list"=daftar.',
     'cari: query = kata kunci nama berkas (mis. "cari file laporan" -> query "laporan").',
     'tugas: teks = isi tugas; jatuh_tempo = YYYY-MM-DD bila disebut (hari ini = ' + today + ').',
     'catat: teks = isi catatan.',
@@ -94,6 +99,26 @@ function geminiParse(text) {
 
 // ---------- Penyimpanan aksi tertunda (menunggu konfirmasi) ----------
 
+/** Bersihkan partikel akhiran ("dong/deh/lah/aja/sih/nih/kok/ya") & tanda baca. */
+function bersihPartikel(s) {
+  var t = String(s).toLowerCase().replace(/[.!,?\s]+$/g, '').trim();
+  var prev;
+  do { prev = t; t = t.replace(/\s+(dong|deh|lah|aja|sih|nih|kok|ya|yaa|gan|bro|sis)$/g, '').trim(); } while (t !== prev);
+  return t;
+}
+
+/** Jawaban "iya" dalam aneka ragam Indonesia & gaul. */
+function isYa(s) {
+  var t = bersihPartikel(s);
+  return /^(ya+h?|iya+h?|iy[ah]?|ok(e|ay|eh|eds)?|oce|sip+(lah)?|gas+(keun|kan)?|lanjut(kan)?|boleh|yo+i?|yu?p|yep|yes+|bener|betul|setuju|sip|simpan|save|deal|mantap|gaskeun|y|yha|ya?wes(an)?|ya?udah)$/.test(t);
+}
+
+/** Jawaban "tidak/batal" dalam aneka ragam Indonesia & gaul. */
+function isTidak(s) {
+  var t = bersihPartikel(s);
+  return /^(tidak|tdk|t?gak|n?gak?|ngga?k?|kaga?k?|e?ngga?k?|no+|nope|batal(in|kan)?|cancel|jangan|skip|oga?h|ga\s?jadi|gajadi|ga\s?usah|gausah|nggausah|n)$/.test(t);
+}
+
 function pendingKey(chatId) { return 'pending_' + chatId; }
 function setPending(chatId, action) { CacheService.getScriptCache().put(pendingKey(chatId), JSON.stringify(action), 600); }
 function getPending(chatId) { var v = CacheService.getScriptCache().get(pendingKey(chatId)); return v ? JSON.parse(v) : null; }
@@ -125,20 +150,72 @@ function tglInfo(a) {
 
 // ---------- Alur natural language ----------
 
+/**
+ * Tangani "hapus/selesai tugas ..." secara deterministik (regex + pencarian),
+ * tanpa memanggil AI. Return true bila sudah ditangani.
+ */
+function handleTugasShortcut(text, chatId) {
+  var low = ' ' + text.toLowerCase() + ' ';
+  var punyaId = !!extractTugasId(text);
+  var adaTugas = /\b(tugas|tugasan|todo|to-?do|to do|task|kerjaan)\b/.test(low);
+  var katHapus = /\b(hapus|hapusin|apus|apusin|ilangin|hilangkan|hilangin|buang|buangin|delete|del|remove)\b/.test(low);
+  var katSelesai = /\b(selesai|selesaikan|selesaiin|kelar|kelarin|beres|beresin|rampung|tuntas|done|udahan|complete|ceklis|checklist)\b/.test(low);
+  var katLihat = /\b(daftar|lihat|liat|cek|tampilin|tampilkan|list|show|ada|apa)\b/.test(low);
+
+  // Lihat daftar tugas (read-only) — perintah paling sering, dibuat deterministik (tanpa AI).
+  var bareTugas = /^\s*(tugas|tugasku|tugasan|todo|to-?do)\s*\??\s*$/.test(low);
+  if (!katHapus && !katSelesai && (bareTugas || (adaTugas && katLihat))) {
+    cmdDaftar([], chatId);
+    return true;
+  }
+
+  var isHapus = katHapus && (adaTugas || punyaId);
+  var isSelesai = katSelesai && (adaTugas || punyaId);
+  if (!isHapus && !isSelesai) return false;
+
+  var id = resolveTugasId(text);
+  if (!id) {
+    sendMessage(chatId, '🤔 Tugas yang mana? Sebutkan ID (mis. T-0001) atau kata kunci judulnya.\nKetik /daftar untuk melihat daftar tugas.');
+    return true;
+  }
+  if (isHapus) {
+    var a = { intent: 'hapus', target: 'tugas', id: id };
+    setPending(chatId, a);
+    sendMessage(chatId, confirmText(a) + '\n\n/ya untuk hapus · /tidak untuk batal');
+  } else {
+    cmdSelesai([id], chatId);
+  }
+  return true;
+}
+
 /** Dipanggil dari Router untuk pesan non-perintah (tanpa awalan '/'). */
 function handleNatural(text, chatId) {
   var low = text.toLowerCase().trim();
 
   // Jika ada aksi tertunda, tafsirkan jawaban ya/tidak.
   if (getPending(chatId)) {
-    if (/^(ya|iya|ok|oke|yes|betul|benar|y|simpan)$/.test(low)) { confirmPending(chatId); return; }
-    if (/^(tidak|gak|ga|nggak|no|batal|n)$/.test(low)) { cancelPending(chatId); return; }
+    if (isYa(low)) { confirmPending(chatId); return; }
+    if (isTidak(low)) { cancelPending(chatId); return; }
     // selain itu: anggap permintaan baru, timpa yang lama.
   }
 
-  var a = geminiParse(text);
+  // Operasi tugas (hapus/selesai) ditangani deterministik — lebih andal dari AI untuk ID.
+  if (handleTugasShortcut(text, chatId)) return;
+
+  var a = null;
+  try { a = geminiParse(text); }
+  catch (e) { logEvent('ERROR', 'gemini_call_threw', String(e)); sendMessage(chatId, '⚠️ AI sedang sibuk/limit. Coba lagi sebentar, atau pakai perintah /help.'); return; }
+
   if (!a || a.intent === 'unknown') {
-    sendMessage(chatId, '🤔 Belum paham. Coba lebih spesifik, atau pakai perintah:\n/keluar 25000 makan\n/tugas bayar listrik #2026-06-25');
+    sendMessage(chatId, [
+      '🤔 Belum paham maksudnya. Contoh yang bisa saya proses:',
+      '• "jajan kopi 25rb"  (catat pengeluaran)',
+      '• "gaji masuk 5jt"  (pemasukan)',
+      '• "ingatkan bayar listrik besok"  (tugas)',
+      '• "rekap bulan ini" · "lihat tugas"',
+      '• "hapus tugas T-0001" · "selesaikan T-0001"',
+      'Atau ketik /help untuk daftar perintah.'
+    ].join('\n'));
     return;
   }
 
@@ -147,8 +224,9 @@ function handleNatural(text, chatId) {
   if (a.intent === 'rekap') { cmdRekap([a.bulan || ''], chatId); return; }
   if (a.intent === 'daftar') { cmdDaftar([], chatId); return; }
   if (a.intent === 'selesai') {
-    if (!a.id) { sendMessage(chatId, '🤔 Tugas yang mana? Sebutkan ID-nya, mis. "selesaikan T-0001".'); return; }
-    cmdSelesai([a.id], chatId);
+    var sid = resolveTugasId(a.id) || resolveTugasId(text);
+    if (!sid) { sendMessage(chatId, '🤔 Tugas yang mana? Sebutkan ID (mis. T-0001) atau kata kunci judulnya. Ketik /daftar.'); return; }
+    cmdSelesai([sid], chatId);
     return;
   }
 
@@ -171,7 +249,10 @@ function handleNatural(text, chatId) {
   // Hapus: destruktif → selalu lewat konfirmasi.
   if (a.intent === 'hapus') {
     var tgt = String(a.target || '').toLowerCase();
-    if (tgt === 'tugas' && !a.id) { sendMessage(chatId, '🤔 Hapus tugas yang mana? Sebutkan ID, mis. "hapus tugas T-0001".'); return; }
+    if (tgt === 'tugas') {
+      a.id = resolveTugasId(a.id) || resolveTugasId(text);
+      if (!a.id) { sendMessage(chatId, '🤔 Hapus tugas yang mana? Sebutkan ID (mis. T-0001) atau kata kunci judulnya. Ketik /daftar.'); return; }
+    }
     if (tgt === 'bulan' && !parseBulan(a.bulan)) { sendMessage(chatId, '🤔 Bulan mana? Sebutkan, mis. "hapus keuangan bulan 2026-05".'); return; }
     if (tgt !== 'tugas' && tgt !== 'bulan') a.target = 'terakhir';
     setPending(chatId, a);
@@ -222,7 +303,9 @@ function executeAction(a, chatId) {
         return;
       }
       var when = (a.tanggal && isValidDate(a.tanggal)) ? new Date(a.tanggal + 'T12:00:00') : new Date();
-      append('Keuangan', [when, a.intent, a.nominal, kat, a.keterangan || '', 'bot-ai']);
+      var ket = a.keterangan || '';
+      if (a.arsip) ket += (ket ? ' | ' : '') + a.arsip;
+      append('Keuangan', [when, a.intent, a.nominal, kat, ket, a.sumber || 'bot-ai']);
       logEvent('INFO', 'ai_keuangan_added', a.intent + ' ' + a.nominal + ' ' + kat);
       sendMessage(chatId, '✅ Tersimpan: ' + confirmText(a) + tanggalSuffix(when));
       refreshDashboard();
@@ -239,7 +322,8 @@ function executeAction(a, chatId) {
 
     case 'catat':
       if (!a.teks) { sendMessage(chatId, '❌ Catatan kosong — batal.'); return; }
-      append('Catatan', [new Date(), a.teks]);
+      var isiCatat = a.teks + (a.arsip ? ' | ' + a.arsip : '');
+      append('Catatan', [new Date(), isiCatat]);
       logEvent('INFO', 'ai_catatan_added', '');
       sendMessage(chatId, '✅ Catatan tersimpan.');
       break;

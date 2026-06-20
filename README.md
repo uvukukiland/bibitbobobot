@@ -62,6 +62,7 @@ flowchart LR
 
 - **Sumber kebenaran** = satu Google Spreadsheet (sheet `Keuangan`, `Tugas`, `Catatan`, `Jadwal`, `Kategori`, `Log`).
 - **Webhook** berjalan sebagai akun Anda; rahasia (token bot, API key) disimpan di **Script Properties**, bukan di kode.
+- **Relay tipis** (val.town / Cloudflare Worker) dipasang di depan webhook: membalas `200` bersih ke Telegram lalu meneruskan ke Apps Script — menghindari penolakan redirect `302` bawaan Apps Script. Detail di [panduan setup & troubleshooting](apps-script/README.md).
 
 ## 📂 Struktur
 

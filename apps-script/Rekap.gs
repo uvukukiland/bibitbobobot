@@ -323,3 +323,62 @@ function hapusKeuanganBulan(specBulan, konfirm, chatId) {
   sendMessage(chatId, '🗑️ ' + targetRows.length + ' transaksi di ' + labelBulan(b) + ' dihapus.');
   refreshDashboard();
 }
+
+// ---------- Resolusi tugas (deterministik, tidak bergantung AI) ----------
+
+var TUGAS_STOPWORDS = ['hapus', 'hapusin', 'apus', 'apusin', 'ilangin', 'hilangkan', 'hilangin',
+  'buang', 'buangin', 'delete', 'del', 'remove', 'selesai', 'selesaikan', 'selesaiin', 'beres',
+  'beresin', 'kelar', 'kelarin', 'rampung', 'tuntas', 'done', 'udahan', 'complete', 'ceklis',
+  'checklist', 'tugas', 'tugasan', 'todo', 'task', 'kerjaan', 'sudah', 'udah', 'tandai', 'tandain',
+  'yang', 'id', 'untuk', 'itu', 'dong', 'tolong', 'liat', 'lihat'];
+
+/** Tangkap ID tugas dari teks: "T-0001", "T0001", "t 1", "id T-0001" -> "T-0001". null bila tak ada. */
+function extractTugasId(text) {
+  var m = String(text || '').match(/\bt[\s\-]?0*(\d{1,4})\b/i);
+  return m ? 'T-' + ('0000' + m[1]).slice(-4) : null;
+}
+
+/** Ubah token tanggal (dd-mm-yyyy / dd/mm/yyyy / yyyy-mm-dd) jadi yyyy-mm-dd. null bila tak ada. */
+function normalizeDateToken(q) {
+  var m = String(q).match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  m = String(q).match(/(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+  return null;
+}
+
+/** Buang kata perintah & token ID dari teks, sisakan kata kunci judul. */
+function cleanTugasQuery(text) {
+  var s = ' ' + String(text || '').toLowerCase() + ' ';
+  TUGAS_STOPWORDS.forEach(function (w) { s = s.replace(new RegExp('\\b' + w + '\\b', 'g'), ' '); });
+  s = s.replace(/\bt[\s\-]?0*\d{1,4}\b/gi, ' ');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+/** Cari ID tugas OPEN dari kata kunci judul atau tanggal tenggat. Return id bila TEPAT satu cocok. */
+function findTugasIdByText(query) {
+  var q = String(query || '').toLowerCase().trim();
+  if (!q) return null;
+  var wantDate = normalizeDateToken(q);
+  var tokens = q.replace(/[-\/]/g, ' ').split(/\s+/).filter(function (t) { return t.length >= 3 && !/^\d+$/.test(t); });
+  var tz = Session.getScriptTimeZone();
+  var rows = readAll('Tugas');
+  var hits = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][3]).toLowerCase() === 'done') continue;
+    var teks = String(rows[i][1]).toLowerCase();
+    var due = rows[i][2];
+    var dueStr = (due instanceof Date) ? Utilities.formatDate(due, tz, 'yyyy-MM-dd') : String(due);
+    var textMatch = tokens.length > 0 && tokens.every(function (t) { return teks.indexOf(t) >= 0; });
+    var dateMatch = wantDate && dueStr === wantDate;
+    if (textMatch || dateMatch) hits.push(String(rows[i][0]));
+  }
+  hits = hits.filter(function (v, i) { return hits.indexOf(v) === i; });
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/** Resolusi satu ID tugas dari teks bebas: coba ID eksplisit, lalu kata kunci/tanggal. */
+function resolveTugasId(text) {
+  if (!text) return null;
+  return extractTugasId(text) || findTugasIdByText(cleanTugasQuery(text));
+}

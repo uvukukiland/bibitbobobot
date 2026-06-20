@@ -193,12 +193,98 @@ Tambah file **`AI.gs`**; perbarui `Router.gs` (jalur natural + `/ya` `/tidak` + 
 ## Setelah deploy ulang kode
 Setiap kali mengubah kode dan ingin perubahan aktif di webhook: **Deploy → Manage deployments → Edit → Version: New version**. (URL Web App tetap sama, jadi webhook tak perlu didaftar ulang.)
 
-## Troubleshooting
-- **Tidak ada balasan:** cek `setupWebhook` mengembalikan `ok:true`; cek `ALLOWED_CHAT_ID` benar (angka, tanpa spasi); cek sheet `Log`.
-- **Error "Config ... belum diset":** jalankan `setupProperties` lagi (mungkin nilai tertinggal kosong).
-- **Error "Sheet ... tidak ada":** jalankan `setupSheets`.
-- **`setupWebhook` error "Web App belum ter-deploy":** selesaikan T0.7 langkah 1–3 dulu, baru Run `setupWebhook`.
-- **Ganti kode tapi bot tetap perilaku lama:** kode di deployment belum diperbarui → lihat bagian "Setelah deploy ulang kode" di atas.
-- **Reset webhook:** Run `deleteWebhook`, lalu `setupWebhook`.
-- **Cek status webhook:** buka di browser `https://api.telegram.org/bot<TOKEN>/getWebhookInfo` — lihat `url` dan `last_error_message`.
-- **`last_error_message: "Wrong response from the webhook: 401 Unauthorized"`** → webhook menunjuk URL `/dev` (bukan `/exec`), atau akses deployment bukan "Anyone". Perbaiki `WEB_APP_URL` ke URL `/exec`, set ulang webhook via browser: `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<EXEC_URL>`.
+## ⚠️ Webhook & Relay — WAJIB baca kalau bot "balas sekali lalu diam"
+
+**Gejala khas:** bot membalas **1 pesan saja** lalu diam; pesan berikutnya (bahkan `/ping`) tak dibalas. Run `setupWebhook` → jalan 1× lagi → diam lagi.
+
+**Penyebab:** Apps Script SELALU menjawab POST dengan **redirect `302`** (ke `script.googleusercontent.com`). Telegram kadang **menolak** redirect ini → menganggap pengiriman gagal → mengulang 1 pesan dengan jeda makin lebar (backoff) → pesan berikutnya tertahan. Di `getWebhookInfo`: `last_error_message: "Wrong response from the webhook: 302 Moved Temporarily"` + `pending_update_count` menumpuk. Di **Executions**, `doPost` tetap **"Selesai"** (kode sehat) tapi jeda antar-eksekusi melebar → bukti backoff.
+
+**Penting:** ini BUKAN kode/fitur berat. `doPost` sukses ~0,6 detik. Redeploy berapa kali pun tak menyembuhkan, karena 302 itu sifat bawaan Apps Script.
+
+**Solusi permanen — pasang RELAY tipis (gratis)** yang membalas `200` bersih ke Telegram lalu meneruskan ke Apps Script. Telegram tak pernah lagi melihat 302.
+
+**val.town** (paling cepat, tanpa CLI): New → **HTTP val** → tempel (ganti URL `/exec` Anda):
+```js
+export default async function (req) {
+  const APPS_SCRIPT_URL = "<URL_/exec_ANDA>";
+  if (req.method !== "POST") return new Response("relay aktif");
+  const body = await req.text();
+  fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body }).catch(() => {});
+  return new Response("ok");
+}
+```
+Lalu arahkan webhook ke **URL val** (BUKAN ke `/exec`), di browser:
+```
+https://api.telegram.org/bot<TOKEN>/setWebhook?url=<URL_VAL>&drop_pending_updates=true
+```
+
+### Beralih dari val.town ke Cloudflare Worker
+Cloudflare lebih tahan beban (cocok kalau bot makin ramai). Konsepnya sama; yang berubah cuma **URL relay** di webhook.
+
+1. **cloudflare.com** → daftar gratis → **Workers & Pages → Create → Workers → Create Worker** → nama mis. `bot-relay` → **Deploy**.
+2. **Edit code** → hapus isi bawaan → tempel (ganti URL `/exec` Anda):
+```js
+export default {
+  async fetch(request, env, ctx) {
+    const APPS_SCRIPT_URL = '<URL_/exec_ANDA>';
+    if (request.method !== 'POST') return new Response('relay aktif', { status: 200 });
+    const body = await request.text();
+    ctx.waitUntil(
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body,
+      }).catch(() => {})
+    );
+    return new Response('ok', { status: 200 });
+  },
+};
+```
+3. **Deploy** → salin URL worker (`https://bot-relay.<sub>.workers.dev`).
+4. **Pindahkan webhook** dari val ke worker — cukup set ulang ke URL baru:
+   ```
+   https://api.telegram.org/bot<TOKEN>/setWebhook?url=<URL_WORKER>&drop_pending_updates=true
+   ```
+5. Tes `/ping`. Setelah yakin jalan, val.town lama boleh dibiarkan/dihapus (sudah tak dipakai).
+
+> Mau balik ke val? Tinggal `setWebhook` lagi ke URL val. Webhook hanya menunjuk **satu** URL pada satu waktu — yang terakhir di-set itulah yang aktif. URL `/exec` Apps Script **tidak berubah**, jadi tak perlu sentuh deployment.
+
+**Setelah pakai relay:**
+- **JANGAN** Run `setupWebhook` lagi — itu menimpa webhook balik ke `/exec` yang 302.
+- Reset/flush bila perlu: ulangi `setWebhook?url=<URL_VAL>&drop_pending_updates=true` (ke URL relay).
+- Biarkan val/worker tetap hidup — itu pintu masuk bot sekarang.
+
+---
+
+## 🔧 Troubleshooting lengkap
+
+| Gejala | Penyebab | Solusi |
+|---|---|---|
+| Bot balas **1× lalu diam**; `getWebhookInfo` → 302 + pending menumpuk | Telegram menolak redirect 302 Apps Script | Pasang **relay** (lihat bagian Webhook & Relay di atas) |
+| **Tak ada balasan sama sekali** (termasuk `/ping`) | Akses deployment salah / skrip error / webhook salah | `getWebhookInfo` cek `last_error_message`; pastikan akses **Anyone**; Run fungsi apa saja di editor untuk cek SyntaxError; cek **Executions** |
+| `last_error: "302 Moved Temporarily"` ke **halaman login** | Akses deployment **"Anyone with Google account"** | Manage deployments → Edit → Who has access = **Anyone** → New version |
+| `last_error: "401 Unauthorized"` | Webhook pakai URL **`/dev`** | Pakai URL **`/exec`**; isi `WEB_APP_URL` benar |
+| **Balasan ganda** (pong 2×) | Telegram retry | Sudah ditangani dedup `update_id` di `doPost` — pastikan kode terbaru ter-deploy |
+| **"route is not defined"** / `... is not defined` di Log | File `.gs` belum tersalin lengkap | Salin SEMUA file, lalu **Deploy → New version** |
+| Ganti kode tapi perilaku **tetap lama** | Belum deploy versi baru | **Deploy → Manage deployments → Edit → Version: New version** |
+| `Config "..." belum diset` | Script Property kosong | Run `setupProperties`, atau isi di Project Settings → Script Properties |
+| `Sheet "..." tidak ada` | Sheet belum dibuat | Run `setupSheets` |
+| **Dashboard `#ERROR!`** di semua sel | Locale id_ID (rumus pakai `;`, bukan `,`) | Sudah diatasi: Dashboard dihitung di JS. Run `buildDashboard` ulang |
+| AI balas **"belum paham"** terus | Gemini limit / kalimat terlalu ambigu | Tunggu sebentar, atau pakai perintah `/`; cek `GEMINI_API_KEY`; ganti `GEMINI_MODEL` bila 404 |
+| AI kategori **"undefined"** | Model tak mengisi field | Sudah dinormalkan otomatis ke `lainnya` |
+| **Foto tak terbaca** | Foto buram / belum ada izin tulis Drive | Foto lebih terang & rata; Run `testFotoSetup` sekali (memicu izin Drive) |
+| Nilai property tiba-tiba hilang/null | Salah menaruh **value** menggantikan **label** di kode | Di kode, `cfg('NAMA_LABEL')` memakai NAMA huruf-besar; nilai asli HANYA di Script Properties — jangan diganti |
+| `setupWebhook` error "Web App belum ter-deploy" | Belum deploy Web App | Selesaikan deploy dulu, baru Run |
+
+**Perintah cek cepat (browser, ganti `<TOKEN>`):**
+- Status webhook: `https://api.telegram.org/bot<TOKEN>/getWebhookInfo` → lihat `url`, `last_error_message`, `pending_update_count`
+- Flush + set ke relay: `https://api.telegram.org/bot<TOKEN>/setWebhook?url=<URL_RELAY>&drop_pending_updates=true`
+- Lepas webhook: `https://api.telegram.org/bot<TOKEN>/deleteWebhook?drop_pending_updates=true`
+
+**Tempat melihat error:** sheet **`Log`** (baris terakhir) + Apps Script **Executions** (ikon ☰ di sidebar kiri). `doPost` "Selesai" = kode sehat; kalau "Gagal/Error", klik untuk lihat detail.
+
+**Aturan emas saat bot bermasalah:**
+1. Cek `getWebhookInfo` dulu — `last_error_message` memberi tahu 90% penyebabnya.
+2. `/ping` mati juga? → masalah webhook/deployment, BUKAN AI.
+3. Hanya pesan AI yang mati? → cek `GEMINI_API_KEY` / limit Gemini.
+4. Setelah ubah kode webhook: **selalu Deploy New version**.

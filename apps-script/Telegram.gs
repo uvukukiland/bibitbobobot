@@ -41,10 +41,24 @@ function setWebhook() {
     throw new Error('URL webhook berakhiran /dev (atau bukan /exec): ' + url +
       '\nSet WEB_APP_URL di Script Properties ke URL /exec dari Manage deployments.');
   }
-  return tgCall('setWebhook', { url: url });
+  // drop_pending_updates: buang antrian tertahan agar tak nyangkut saat pulih.
+  return tgCall('setWebhook', { url: url, drop_pending_updates: true });
 }
 
-/** Lepas webhook (untuk debugging). */
+/** Lepas webhook + buang antrian tertahan (untuk debugging/pemulihan). */
 function deleteWebhook() {
-  return tgCall('deleteWebhook', {});
+  return tgCall('deleteWebhook', { drop_pending_updates: true });
+}
+
+/** Unduh file Telegram (mis. foto) sebagai Blob. Lempar bila gagal. */
+function tgGetFileBlob(fileId) {
+  var token = cfg('TELEGRAM_BOT_TOKEN');
+  var info = tgCall('getFile', { file_id: fileId });
+  if (!info.ok || !info.result || !info.result.file_path) {
+    throw new Error('getFile gagal untuk ' + fileId);
+  }
+  var fileUrl = 'https://api.telegram.org/file/bot' + token + '/' + info.result.file_path;
+  var res = UrlFetchApp.fetch(fileUrl, { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('Unduh file gagal: ' + res.getResponseCode());
+  return res.getBlob();
 }

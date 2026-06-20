@@ -64,6 +64,9 @@ function helpText() {
     '· "rekap keuangan bulan ini"',
     '· "tugas T-0001 sudah selesai"',
     '· "hapus transaksi terakhir"',
+    '',
+    '📸 Kirim FOTO struk / bukti transfer / catatan tulisan tangan',
+    '   → bot baca otomatis & arsipkan ke Drive.',
     'Untuk simpan/hapus, bot minta konfirmasi → /ya atau /tidak.'
   ].join('\n');
 }

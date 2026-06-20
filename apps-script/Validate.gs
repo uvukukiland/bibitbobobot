@@ -51,11 +51,12 @@ function formatRupiah(n) {
  */
 function resolveTanggal(spec) {
   var s = String(spec || '').toLowerCase().replace(/\s+/g, '');
-  if (!s || s === 'hariini' || s === 'sekarang') return new Date();
-  if (s === 'kemarin') return geserHari(-1);
-  if (s === 'kemarinlusa' || s === 'lusakemarin') return geserHari(-2);
-  var m = s.match(/^(\d+)harilalu$/);
+  if (!s || s === 'hariini' || s === 'sekarang' || s === 'td' || s === 'tadi' || s === 'barusan') return new Date();
+  if (s === 'kemarin' || s === 'kemaren' || s === 'kmrn' || s === 'kmaren') return geserHari(-1);
+  if (s === 'kemarinlusa' || s === 'lusakemarin' || s === 'kemarendulu') return geserHari(-2);
+  var m = s.match(/^(\d+)hari(yang)?lalu$/);
   if (m) return geserHari(-parseInt(m[1], 10));
+  if (s === 'minggulalu' || s === 'pekanlalu') return geserHari(-7);
   if (isValidDate(s)) return new Date(s + 'T12:00:00');
   return null;
 }
