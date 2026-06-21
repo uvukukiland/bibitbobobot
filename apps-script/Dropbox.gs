@@ -108,11 +108,18 @@ function dropboxExchangeCode() {
   });
   var text = res.getContentText();
   var body; try { body = JSON.parse(text); } catch (e) { body = {}; }
+  CacheService.getScriptCache().remove('dbx_access'); // buang token akses lama (mis. tanpa scope baru)
   if (body.refresh_token) {
     Logger.log('REFRESH TOKEN (salin ke DROPBOX_REFRESH_TOKEN):\n\n' + body.refresh_token);
   } else {
     Logger.log('Gagal menukar code (mungkin kedaluwarsa/sudah dipakai — ulangi otorisasi):\n' + text);
   }
+}
+
+/** Bila perlu paksa ambil token baru (mis. setelah ubah scope). */
+function dropboxClearCache() {
+  CacheService.getScriptCache().remove('dbx_access');
+  Logger.log('Cache token Dropbox dibersihkan. Token baru akan diambil saat panggilan berikutnya.');
 }
 
 /** Jalankan SEKALI dari editor untuk uji koneksi Dropbox (memicu izin UrlFetch). */
