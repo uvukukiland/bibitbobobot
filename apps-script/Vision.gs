@@ -70,8 +70,7 @@ function handlePhoto(msg, fileId, chatId) {
 
   setPending(chatId, a);
   var label = { struk: '🧾 Struk', transfer: '🏦 Transfer', catatan: '📝 Catatan' }[a.jenis] || '📸 Foto';
-  sendMessage(chatId, label + ' terbaca:\n' + confirmText(a) +
-    (url ? '\n🗂️ Arsip: ' + url : '') + '\n\n/ya untuk simpan · /tidak untuk batal');
+  askConfirm(chatId, label + ' terbaca:\n' + confirmText(a) + (url ? '\n🗂️ Arsip: ' + url : ''));
 }
 
 /** Kirim gambar ke Gemini, kembalikan objek aksi {jenis,intent,...} atau null. */

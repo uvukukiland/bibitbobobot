@@ -27,8 +27,12 @@ function route(text, chatId) {
     case '/cari':   cmdCari(args, chatId); break;
     case '/acara':  cmdAcara(args, chatId); break;
 
-    // Quality of life — daftar, rekap, edit & hapus
+    // Quality of life — lihat, rekap, edit & hapus
     case '/daftar': cmdDaftar(args, chatId); break;
+    case '/catatan': cmdCatatan(args, chatId); break;
+    case '/agenda': cmdAgenda(chatId); break;
+    case '/saldo':  cmdSaldo(chatId); break;
+    case '/status': cmdStatus(chatId); break;
     case '/rekap':  cmdRekap(args, chatId); break;
     case '/edit':   cmdEdit(args, chatId); break;
     case '/hapus':  cmdHapus(args, chatId); break;
@@ -52,9 +56,10 @@ function helpText() {
     '/acara <label> #YYYY-MM-DD [HH:MM] (agenda sekali)',
     '/daftar [semua] (lihat tugas)',
     '/selesai <id-tugas>',
-    '/catat <teks>',
+    '/catat <teks>  ·  /catatan [kata] (lihat)',
+    '/agenda (acara mendatang)  ·  /saldo',
     '/cari <kata> (berkas Drive)',
-    '/rekap [YYYY-MM] (ringkasan bulan)',
+    '/rekap [YYYY-MM] (ringkasan bulan)  ·  /status',
     '/edit terakhir|tugas <id>|catatan … (perbaiki)',
     '/hapus terakhir | tugas <id> | bulan YYYY-MM',
     '/ping',
@@ -70,6 +75,6 @@ function helpText() {
     '',
     '📸 Kirim FOTO struk / bukti transfer / catatan tulisan tangan',
     '   → bot baca otomatis & arsipkan ke Drive.',
-    'Untuk simpan/hapus, bot minta konfirmasi → /ya atau /tidak.'
+    'Untuk simpan/hapus/ubah, bot minta konfirmasi → tap tombol ✅/❌ (atau ketik /ya /tidak).'
   ].join('\n');
 }

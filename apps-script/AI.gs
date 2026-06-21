@@ -184,7 +184,7 @@ function handleTugasShortcut(text, chatId) {
   if (isHapus) {
     var a = { intent: 'hapus', target: 'tugas', id: id };
     setPending(chatId, a);
-    sendMessage(chatId, confirmText(a) + '\n\n/ya untuk hapus · /tidak untuk batal');
+    askConfirm(chatId, confirmText(a));
   } else {
     cmdSelesai([id], chatId);
   }
@@ -204,6 +204,8 @@ function handleNatural(text, chatId) {
 
   // Operasi tugas (hapus/selesai) ditangani deterministik — lebih andal dari AI untuk ID.
   if (handleTugasShortcut(text, chatId)) return;
+  // Lihat saldo/catatan/agenda — read-only, deterministik.
+  if (handleViewShortcut(text, chatId)) return;
 
   var a = null;
   try { a = geminiParse(text); }
@@ -245,7 +247,7 @@ function handleNatural(text, chatId) {
       if (!a.field || !String(a.nilai || '').trim()) { sendMessage(chatId, '🤔 Mau ubah apa dan jadi apa? Mis. "ubah nominal terakhir jadi 30rb".'); return; }
     }
     setPending(chatId, a);
-    sendMessage(chatId, confirmText(a) + '\n\n/ya untuk ubah · /tidak untuk batal');
+    askConfirm(chatId, confirmText(a));
     return;
   }
 
@@ -259,7 +261,7 @@ function handleNatural(text, chatId) {
     if (tgt === 'bulan' && !parseBulan(a.bulan)) { sendMessage(chatId, '🤔 Bulan mana? Sebutkan, mis. "hapus keuangan bulan 2026-05".'); return; }
     if (tgt !== 'tugas' && tgt !== 'bulan') a.target = 'terakhir';
     setPending(chatId, a);
-    sendMessage(chatId, confirmText(a) + '\n\n/ya untuk hapus · /tidak untuk batal');
+    askConfirm(chatId, confirmText(a));
     return;
   }
 
@@ -283,7 +285,7 @@ function handleNatural(text, chatId) {
   }
 
   setPending(chatId, a);
-  sendMessage(chatId, confirmText(a) + '\n\n/ya untuk simpan · /tidak untuk batal');
+  askConfirm(chatId, confirmText(a));
 }
 
 function confirmPending(chatId) {
@@ -296,6 +298,33 @@ function confirmPending(chatId) {
 function cancelPending(chatId) {
   clearPending(chatId);
   sendMessage(chatId, '❌ Dibatalkan.');
+}
+
+/** Prompt konfirmasi dengan tombol ✅/❌ (tetap bisa diketik /ya /tidak juga). */
+function askConfirm(chatId, bodyText) {
+  sendButtons(chatId, bodyText, [[
+    { text: '✅ Ya', callback_data: 'confirm' },
+    { text: '❌ Tidak', callback_data: 'cancel' }
+  ]]);
+}
+
+/** Tangani tap tombol inline konfirmasi. */
+function handleCallback(cq, chatId) {
+  answerCallback(cq.id);
+  try { if (cq.message) clearButtons(chatId, cq.message.message_id); } catch (e) {}
+  var data = String(cq.data || '');
+  if (data === 'confirm') confirmPending(chatId);
+  else if (data === 'cancel') cancelPending(chatId);
+}
+
+/** View read-only via bahasa natural: saldo, catatan, agenda. Return true bila ditangani. */
+function handleViewShortcut(text, chatId) {
+  var low = ' ' + text.toLowerCase() + ' ';
+  var lihat = /\b(lihat|liat|cek|tampilin|tampilkan|daftar|list|show|berapa|ada|apa)\b/.test(low);
+  if (/\bsaldo\b/.test(low) || /\b(uang|duit)ku\b/.test(low)) { cmdSaldo(chatId); return true; }
+  if (/\b(catatan|notes?)\b/.test(low) && lihat) { cmdCatatan([], chatId); return true; }
+  if (/\b(agenda|jadwal|acara)\b/.test(low) && lihat) { cmdAgenda(chatId); return true; }
+  return false;
 }
 
 /** Tulis aksi ke sheet setelah dikonfirmasi. Tetap validasi (jaga data bersih). */

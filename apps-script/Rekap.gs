@@ -82,6 +82,83 @@ function cmdRekap(args, chatId) {
   sendMessage(chatId, lines.join('\n'));
 }
 
+/** /saldo → saldo total semua waktu + saldo bulan berjalan. */
+function cmdSaldo(chatId) {
+  var now = new Date();
+  var b = { y: now.getFullYear(), m: now.getMonth() + 1 };
+  var prev = (b.m === 1) ? { y: b.y - 1, m: 12 } : { y: b.y, m: b.m - 1 };
+  var d = scanKeuangan(b, prev);
+  sendMessage(chatId,
+    '💼 Saldo total: Rp' + formatRupiah(d.saldoTotal) +
+    '\n🟦 Saldo bulan ini: Rp' + formatRupiah(d.masuk - d.keluar) +
+    '\n   (+Rp' + formatRupiah(d.masuk) + ' / -Rp' + formatRupiah(d.keluar) + ')');
+}
+
+/** /catatan [kata] → 5 catatan terakhir, atau yang memuat kata kunci. */
+function cmdCatatan(args, chatId) {
+  var q = args.join(' ').toLowerCase().trim();
+  var tz = Session.getScriptTimeZone();
+  var rows = readAll('Catatan'); // timestamp, teks
+  var items = [];
+  for (var i = 1; i < rows.length; i++) {
+    var teks = String(rows[i][1]);
+    if (q && teks.toLowerCase().indexOf(q) === -1) continue;
+    items.push({ t: rows[i][0], teks: teks });
+  }
+  if (!items.length) { sendMessage(chatId, q ? 'Tidak ada catatan memuat "' + q + '".' : 'Belum ada catatan.'); return; }
+  var last = items.slice(-5).reverse();
+  var out = [q ? '🔎 Catatan memuat "' + q + '":' : '📝 Catatan terakhir:'];
+  last.forEach(function (c) {
+    var tgl = (c.t instanceof Date) ? Utilities.formatDate(c.t, tz, 'dd/MM HH:mm') : String(c.t);
+    out.push('• [' + tgl + '] ' + c.teks);
+  });
+  if (!q && items.length > 5) out.push('(5 terbaru dari ' + items.length + ' catatan)');
+  sendMessage(chatId, out.join('\n'));
+}
+
+/** /agenda → acara mendatang (tanggal ≥ hari ini) + jadwal rutin. */
+function cmdAgenda(chatId) {
+  var tz = Session.getScriptTimeZone();
+  var todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var rows = readAll('Jadwal'); // id, label, waktu, hari, aktif, terkirim_pada
+  var acara = [], rutin = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][4]).toLowerCase() !== 'y') continue;
+    var jam = jamStr(rows[i][2], tz);
+    var hd = toDateStr(rows[i][3], tz);
+    if (hd) { if (hd >= todayStr) acara.push({ tgl: hd, jam: jam, label: rows[i][1], id: rows[i][0] }); }
+    else rutin.push({ hari: String(rows[i][3]), jam: jam, label: rows[i][1] });
+  }
+  acara.sort(function (a, b) { return (a.tgl + a.jam) < (b.tgl + b.jam) ? -1 : 1; });
+  var out = ['📅 Agenda'];
+  if (acara.length) { out.push('', 'Acara mendatang:'); acara.forEach(function (a) { out.push('• ' + a.tgl + ' ' + a.jam + ' — ' + a.label + ' (' + a.id + ')'); }); }
+  if (rutin.length) { out.push('', 'Rutin:'); rutin.forEach(function (r) { out.push('• ' + r.hari + ' ' + r.jam + ' — ' + r.label); }); }
+  if (!acara.length && !rutin.length) out.push('', 'Belum ada jadwal/acara aktif.');
+  sendMessage(chatId, out.join('\n'));
+}
+
+/** /status → cek kesehatan: properti, trigger, webhook. */
+function cmdStatus(chatId) {
+  var out = ['🩺 Status sistem', ''];
+  ['TELEGRAM_BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SPREADSHEET_ID', 'GEMINI_API_KEY'].forEach(function (k) {
+    out.push((cfgOptional(k, '') ? '✅' : '❌') + ' ' + k);
+  });
+  out.push('');
+  var trigs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+  ['reminderTick', 'resetJadwalHarian', 'sendRingkasanHarian', 'refreshDashboard'].forEach(function (fn) {
+    out.push((trigs.indexOf(fn) >= 0 ? '✅' : '⬜') + ' trigger ' + fn);
+  });
+  try {
+    var info = tgCall('getWebhookInfo', {});
+    if (info && info.result) {
+      out.push('', '🔗 webhook: ' + (info.result.url || '(kosong)'));
+      out.push('📥 pending: ' + (info.result.pending_update_count || 0));
+      if (info.result.last_error_message) out.push('⚠️ ' + info.result.last_error_message);
+    }
+  } catch (e) { out.push('', '⚠️ gagal cek webhook'); }
+  sendMessage(chatId, out.join('\n'));
+}
+
 /**
  * /daftar [semua] → tampilkan tugas yang masih open (default) + ID-nya.
  * 'semua' = ikut tampilkan yang sudah done.

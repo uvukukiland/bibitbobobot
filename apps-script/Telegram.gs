@@ -26,6 +26,21 @@ function sendMessage(chatId, text) {
   return tgCall('sendMessage', { chat_id: chatId, text: text });
 }
 
+/** Kirim pesan dengan tombol inline. inlineKeyboard = array baris tombol. */
+function sendButtons(chatId, text, inlineKeyboard) {
+  return tgCall('sendMessage', { chat_id: chatId, text: text, reply_markup: { inline_keyboard: inlineKeyboard } });
+}
+
+/** Jawab callback (hilangkan ikon loading di tombol). */
+function answerCallback(cbId, text) {
+  return tgCall('answerCallbackQuery', { callback_query_id: cbId, text: text || '' });
+}
+
+/** Hapus tombol pada pesan (agar tak ditekan dua kali). */
+function clearButtons(chatId, messageId) {
+  return tgCall('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+}
+
 /**
  * Daftarkan webhook ke URL Web App ini. Jalankan SETELAH deploy.
  * PENTING: harus URL /exec (URL deployment), bukan /dev. URL /dev butuh login

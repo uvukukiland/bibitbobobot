@@ -16,6 +16,15 @@ function doPost(e) {
     if (cache.get(dedupeKey)) return ok();
     cache.put(dedupeKey, '1', 600); // ingat 10 menit
 
+    // Tap tombol inline (konfirmasi ✅/❌).
+    if (update.callback_query) {
+      var cq = update.callback_query;
+      var cqChat = (cq.message && cq.message.chat) ? cq.message.chat.id : (cq.from ? cq.from.id : null);
+      if (String(cqChat) === String(cfg('ALLOWED_CHAT_ID'))) handleCallback(cq, cqChat);
+      else answerCallback(cq.id);
+      return ok();
+    }
+
     var msg = update.message || update.edited_message;
     if (!msg) return ok();
 
