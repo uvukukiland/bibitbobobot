@@ -8,7 +8,7 @@
 var ACTION_SCHEMA = {
   type: 'object',
   properties: {
-    intent: { type: 'string', enum: ['keluar', 'masuk', 'tugas', 'catat', 'cari', 'rekap', 'selesai', 'hapus', 'daftar', 'edit', 'unknown'] },
+    intent: { type: 'string', enum: ['keluar', 'masuk', 'tugas', 'catat', 'cari', 'rekap', 'selesai', 'hapus', 'daftar', 'edit', 'acara', 'unknown'] },
     nominal: { type: 'integer' },
     kategori: { type: 'string' },
     keterangan: { type: 'string' },
@@ -20,7 +20,8 @@ var ACTION_SCHEMA = {
     target: { type: 'string', enum: ['terakhir', 'bulan', 'tugas', 'catatan'] },
     tanggal: { type: 'string' },
     field: { type: 'string' },
-    nilai: { type: 'string' }
+    nilai: { type: 'string' },
+    jam: { type: 'string' }
   },
   required: ['intent']
 };
@@ -57,6 +58,7 @@ function geminiParse(text) {
     'Intent gaul/singkatan: "catetin/catet dong/notes"=catat; "ingetin/ingatin/jangan lupa/reminder/todo"=tugas; "cariin/carikan/search"=cari; "abis berapa sih/laporan dong/cek keuangan/rekap dong"=rekap; "apus/apusin/ilangin/delete/del"=hapus; "kelarin/udah beres/rampung/done"=selesai; "liat tugas/ada tugas apa/todo list"=daftar.',
     'cari: query = kata kunci nama berkas (mis. "cari file laporan" -> query "laporan").',
     'tugas: teks = isi tugas; jatuh_tempo = YYYY-MM-DD bila disebut (hari ini = ' + today + ').',
+    'acara/agenda SATU KALI pada tanggal tertentu (mis. "rapat tim 30 juni jam 2 siang", "ada acara 5 juli", "meeting besok jam 9"): intent "acara"; teks = nama acara; tanggal = YYYY-MM-DD; jam = HH:MM 24-jam ("jam 2 siang"->14:00, "jam 9 pagi"->09:00, "jam 8 malam"->20:00); bila jam tak disebut KOSONGKAN. Beda dari "tugas" (yang harus dikerjakan) — "acara" itu jadwal/agenda.',
     'catat: teks = isi catatan.',
     'rekap: bulan = YYYY-MM bila pengguna menyebut bulan (hitung dari hari ini = ' + today + '; "bulan ini" = kosongkan; "bulan lalu" = bulan sebelumnya). Contoh "rekap keuangan", "laporan bulan ini", "berapa pengeluaranku" -> intent rekap.',
     'selesai: id = ID tugas berformat T-0001 bila disebut. Contoh "tugas T-0002 sudah beres" -> intent selesai, id "T-0002".',
@@ -131,6 +133,7 @@ function confirmText(a) {
     case 'masuk':  return '💰 Pemasukan Rp' + formatRupiah(a.nominal) + ' · ' + a.kategori + (a.keterangan ? ' · ' + a.keterangan : '') + tglInfo(a);
     case 'tugas':  return '📋 Tugas: ' + a.teks + (a.jatuh_tempo ? ' (tenggat ' + a.jatuh_tempo + ')' : '');
     case 'catat':  return '📝 Catatan: ' + a.teks;
+    case 'acara':  return '📅 Acara: ' + a.teks + ' — ' + a.tanggal + ' ' + (a.jam || '08:00');
     case 'hapus':
       if (a.target === 'tugas') return '🗑️ Hapus tugas ' + (a.id || '?') + '?';
       if (a.target === 'bulan') return '🗑️ Hapus SEMUA keuangan bulan ' + (a.bulan || '?') + '? (tidak bisa dibatalkan)';
@@ -274,6 +277,10 @@ function handleNatural(text, chatId) {
     sendMessage(chatId, '🤔 Isinya apa? Coba tulis lebih lengkap.');
     return;
   }
+  if (a.intent === 'acara' && (!String(a.teks || '').trim() || !a.tanggal || !isValidDate(a.tanggal))) {
+    sendMessage(chatId, '🤔 Acara apa & tanggal berapa? mis. "rapat tim 30 Juni jam 2 siang".');
+    return;
+  }
 
   setPending(chatId, a);
   sendMessage(chatId, confirmText(a) + '\n\n/ya untuk simpan · /tidak untuk batal');
@@ -326,6 +333,10 @@ function executeAction(a, chatId) {
       append('Catatan', [new Date(), isiCatat]);
       logEvent('INFO', 'ai_catatan_added', '');
       sendMessage(chatId, '✅ Catatan tersimpan.');
+      break;
+
+    case 'acara':
+      tambahAcara(a.teks, a.tanggal, a.jam, chatId);
       break;
 
     case 'hapus':

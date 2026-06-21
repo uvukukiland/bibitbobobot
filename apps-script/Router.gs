@@ -25,6 +25,7 @@ function route(text, chatId) {
     case '/catat':  cmdCatat(text, chatId); break;
     case '/selesai': cmdSelesai(args, chatId); break;
     case '/cari':   cmdCari(args, chatId); break;
+    case '/acara':  cmdAcara(args, chatId); break;
 
     // Quality of life — daftar, rekap, edit & hapus
     case '/daftar': cmdDaftar(args, chatId); break;
@@ -48,6 +49,7 @@ function helpText() {
     '/keluar <nominal> <kategori> [ket] [#tgl]',
     '/masuk <nominal> <kategori> [ket] [#tgl]',
     '/tugas <teks> [#YYYY-MM-DD]',
+    '/acara <label> #YYYY-MM-DD [HH:MM] (agenda sekali)',
     '/daftar [semua] (lihat tugas)',
     '/selesai <id-tugas>',
     '/catat <teks>',
@@ -62,6 +64,7 @@ function helpText() {
     'Atau ketik bebas (AI), tanpa garis miring:',
     '· "tadi jajan kopi 25rb"',
     '· "rekap keuangan bulan ini"',
+    '· "rapat tim 30 juni jam 2 siang" (acara)',
     '· "tugas T-0001 sudah selesai"',
     '· "hapus transaksi terakhir"',
     '',
