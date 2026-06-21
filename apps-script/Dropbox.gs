@@ -108,11 +108,14 @@ function dropboxExchangeCode() {
   });
   var text = res.getContentText();
   var body; try { body = JSON.parse(text); } catch (e) { body = {}; }
-  CacheService.getScriptCache().remove('dbx_access'); // buang token akses lama (mis. tanpa scope baru)
   if (body.refresh_token) {
-    Logger.log('REFRESH TOKEN (salin ke DROPBOX_REFRESH_TOKEN):\n\n' + body.refresh_token);
+    var props = PropertiesService.getScriptProperties();
+    props.setProperty('DROPBOX_REFRESH_TOKEN', body.refresh_token); // isi otomatis (anti salah salin)
+    props.deleteProperty('DROPBOX_AUTH_CODE');                      // sudah sekali pakai
+    CacheService.getScriptCache().remove('dbx_access');             // buang token akses lama
+    Logger.log('✅ Berhasil! DROPBOX_REFRESH_TOKEN sudah diisi otomatis & DROPBOX_AUTH_CODE dihapus.\nSekarang Run testDropbox.');
   } else {
-    Logger.log('Gagal menukar code (mungkin kedaluwarsa/sudah dipakai — ulangi otorisasi):\n' + text);
+    Logger.log('❌ Gagal menukar code (kedaluwarsa/sudah dipakai). Ambil code BARU dari URL otorisasi, isi ulang DROPBOX_AUTH_CODE, lalu Run lagi:\n' + text);
   }
 }
 
