@@ -107,7 +107,8 @@ function setupWebhook() {
 
 /** Bantu cek konfigurasi: cetak status properti & sheet ke Log. */
 function setupVerify() {
-  var keys = ['TELEGRAM_BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SPREADSHEET_ID', 'DRIVE_ROOT_FOLDER_ID', 'WEB_APP_URL'];
+  var keys = ['TELEGRAM_BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SPREADSHEET_ID', 'DRIVE_ROOT_FOLDER_ID', 'WEB_APP_URL',
+    'GEMINI_API_KEY', 'DROPBOX_APP_KEY', 'DROPBOX_APP_SECRET', 'DROPBOX_REFRESH_TOKEN'];
   keys.forEach(function (k) {
     var v = cfgOptional(k, '');
     Logger.log(k + ': ' + (v ? 'terisi' : 'KOSONG'));

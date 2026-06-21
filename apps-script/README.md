@@ -190,6 +190,35 @@ Tambah file **`AI.gs`**; perbarui `Router.gs` (jalur natural + `/ya` `/tidak` + 
 
 ---
 
+## Integrasi Dropbox (`/dropbox <kata>`)
+
+Cari berkas di Dropbox dari Telegram, balas tautan yang bisa diklik. Gratis, jalan di Apps Script.
+
+### D.1 — Buat app Dropbox
+1. Buka **dropbox.com/developers/apps → Create app**.
+2. Pilih **Scoped access** → **Full Dropbox** (atau App folder bila ingin terbatas) → beri nama → **Create app**.
+3. Tab **Permissions**: centang `files.metadata.read` dan `files.content.read` → **Submit**.
+4. Tab **Settings**: catat **App key** dan **App secret**.
+
+### D.2 — Dapatkan refresh token (tanpa curl)
+1. Isi Script Properties: **`DROPBOX_APP_KEY`**, **`DROPBOX_APP_SECRET`**.
+2. Buka URL ini di browser (ganti `<APP_KEY>`), **Allow**, lalu **salin `code`** yang muncul:
+   ```
+   https://www.dropbox.com/oauth2/authorize?client_id=<APP_KEY>&token_access_type=offline&response_type=code
+   ```
+3. Isi Script Property **`DROPBOX_AUTH_CODE`** = code itu (code cepat kedaluwarsa, segera lanjut).
+4. Editor → Run **`dropboxExchangeCode`** → buka **Execution log** → salin **refresh token**-nya.
+5. Isi **`DROPBOX_REFRESH_TOKEN`** = token itu. **Hapus** `DROPBOX_AUTH_CODE` (tak dipakai lagi).
+
+### D.3 — Uji & pakai
+1. Run **`testDropbox`** sekali (memicu izin UrlFetch + verifikasi). Log harus menampilkan beberapa berkas.
+2. **Deploy → New version.**
+3. Di Telegram: `/dropbox laporan`, atau ketik *"cari laporan di dropbox"*.
+
+> `/cari` = Google Drive · `/dropbox` = Dropbox. Token akses Dropbox di-cache ~3 jam & diperbarui otomatis dari refresh token.
+
+---
+
 ## Setelah deploy ulang kode
 Setiap kali mengubah kode dan ingin perubahan aktif di webhook: **Deploy → Manage deployments → Edit → Version: New version**. (URL Web App tetap sama, jadi webhook tak perlu didaftar ulang.)
 

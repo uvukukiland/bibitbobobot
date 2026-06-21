@@ -25,6 +25,7 @@ function route(text, chatId) {
     case '/catat':  cmdCatat(text, chatId); break;
     case '/selesai': cmdSelesai(args, chatId); break;
     case '/cari':   cmdCari(args, chatId); break;
+    case '/dropbox': cmdCariDropbox(args, chatId); break;
     case '/acara':  cmdAcara(args, chatId); break;
 
     // Quality of life — lihat, rekap, edit & hapus
@@ -58,7 +59,7 @@ function helpText() {
     '/selesai <id-tugas>',
     '/catat <teks>  ·  /catatan [kata] (lihat)',
     '/agenda (acara mendatang)  ·  /saldo',
-    '/cari <kata> (berkas Drive)',
+    '/cari <kata> (Drive)  ·  /dropbox <kata>',
     '/rekap [YYYY-MM] (ringkasan bulan)  ·  /status',
     '/edit terakhir|tugas <id>|catatan … (perbaiki)',
     '/hapus terakhir | tugas <id> | bulan YYYY-MM',

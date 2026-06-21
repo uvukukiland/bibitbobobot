@@ -225,7 +225,11 @@ function handleNatural(text, chatId) {
   }
 
   // Aksi read-only / aman: langsung jalankan tanpa konfirmasi.
-  if (a.intent === 'cari') { cmdCari([a.query || ''], chatId); return; }
+  if (a.intent === 'cari') {
+    if (/dropbox/i.test(text)) cmdCariDropbox([a.query || ''], chatId);
+    else cmdCari([a.query || ''], chatId);
+    return;
+  }
   if (a.intent === 'rekap') { cmdRekap([a.bulan || ''], chatId); return; }
   if (a.intent === 'daftar') { cmdDaftar([], chatId); return; }
   if (a.intent === 'selesai') {
