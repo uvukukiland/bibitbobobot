@@ -3,20 +3,31 @@
  * Auth: refresh token (akses offline). Script Properties yang dibutuhkan:
  *   DROPBOX_APP_KEY, DROPBOX_APP_SECRET, DROPBOX_REFRESH_TOKEN
  * Lihat README bagian "Integrasi Dropbox" untuk cara membuat ketiganya.
+ *
+ * Host: RPC = api.dropboxapi.com (BUKAN api.dropbox.com).
  */
+
+/** Parse respons Dropbox dengan aman; munculkan pesan asli bila bukan JSON / bukan 200. */
+function dbxJson(res, where) {
+  var code = res.getResponseCode();
+  var text = res.getContentText();
+  if (code !== 200) throw new Error('Dropbox ' + where + ' (HTTP ' + code + '): ' + text.slice(0, 250));
+  try { return JSON.parse(text); }
+  catch (e) { throw new Error('Dropbox ' + where + ' respons bukan JSON: ' + text.slice(0, 250)); }
+}
 
 /** Access token Dropbox (ditukar dari refresh token; di-cache ~3 jam). */
 function dropboxAccessToken() {
   var cache = CacheService.getScriptCache();
   var tok = cache.get('dbx_access');
   if (tok) return tok;
-  var res = UrlFetchApp.fetch('https://api.dropbox.com/oauth2/token', {
+  var res = UrlFetchApp.fetch('https://api.dropboxapi.com/oauth2/token', {
     method: 'post',
     payload: { grant_type: 'refresh_token', refresh_token: cfg('DROPBOX_REFRESH_TOKEN') },
     headers: { Authorization: 'Basic ' + Utilities.base64Encode(cfg('DROPBOX_APP_KEY') + ':' + cfg('DROPBOX_APP_SECRET')) },
     muteHttpExceptions: true
   });
-  var body = JSON.parse(res.getContentText());
+  var body = dbxJson(res, 'oauth/token');
   if (!body.access_token) throw new Error('Dropbox auth gagal: ' + res.getContentText().slice(0, 200));
   cache.put('dbx_access', body.access_token, 10800); // token Dropbox berlaku ~4 jam
   return body.access_token;
@@ -25,15 +36,15 @@ function dropboxAccessToken() {
 /** Cari berkas Dropbox berdasarkan nama. Return [{name, path, id}], maks `max`. */
 function dropboxSearch(query, max) {
   var token = dropboxAccessToken();
-  var res = UrlFetchApp.fetch('https://api.dropbox.com/2/files/search_v2', {
+  var res = UrlFetchApp.fetch('https://api.dropboxapi.com/2/files/search_v2', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ query: query, options: { max_results: Math.min(max || 8, 20), file_status: 'active' } }),
     muteHttpExceptions: true
   });
-  var body = JSON.parse(res.getContentText());
-  if (!body.matches) { logEvent('ERROR', 'dropbox_search_failed', res.getContentText().slice(0, 200)); return []; }
+  var body = dbxJson(res, 'search_v2');
+  if (!body.matches) return [];
   var out = [];
   for (var i = 0; i < body.matches.length && out.length < (max || 8); i++) {
     var md = body.matches[i].metadata && body.matches[i].metadata.metadata;
@@ -46,14 +57,14 @@ function dropboxSearch(query, max) {
 /** Tautan sementara (langsung buka/unduh) untuk satu berkas Dropbox. */
 function dropboxLink(path) {
   var token = dropboxAccessToken();
-  var res = UrlFetchApp.fetch('https://api.dropbox.com/2/files/get_temporary_link', {
+  var res = UrlFetchApp.fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
     payload: JSON.stringify({ path: path }),
     muteHttpExceptions: true
   });
-  var body = JSON.parse(res.getContentText());
+  var body = dbxJson(res, 'get_temporary_link');
   return body.link || '';
 }
 
@@ -67,7 +78,8 @@ function cmdCariDropbox(args, chatId) {
     files = dropboxSearch(query, 8);
   } catch (e) {
     logEvent('ERROR', 'dropbox_failed', String(e));
-    sendMessage(chatId, '❌ Gagal mengakses Dropbox. Cek DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN di Script Properties.');
+    sendMessage(chatId, '❌ Gagal mengakses Dropbox.\n' + String(e).slice(0, 200) +
+      '\n\nCek DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN & scope app.');
     return;
   }
   if (!files.length) { sendMessage(chatId, 'Tidak ada berkas Dropbox yang namanya memuat "' + query + '".'); return; }
@@ -88,17 +100,18 @@ function cmdCariDropbox(args, chatId) {
  * 4) Salin refresh token dari Log ke DROPBOX_REFRESH_TOKEN; hapus DROPBOX_AUTH_CODE.
  */
 function dropboxExchangeCode() {
-  var res = UrlFetchApp.fetch('https://api.dropbox.com/oauth2/token', {
+  var res = UrlFetchApp.fetch('https://api.dropboxapi.com/oauth2/token', {
     method: 'post',
     payload: { code: cfg('DROPBOX_AUTH_CODE'), grant_type: 'authorization_code' },
     headers: { Authorization: 'Basic ' + Utilities.base64Encode(cfg('DROPBOX_APP_KEY') + ':' + cfg('DROPBOX_APP_SECRET')) },
     muteHttpExceptions: true
   });
-  var body = JSON.parse(res.getContentText());
+  var text = res.getContentText();
+  var body; try { body = JSON.parse(text); } catch (e) { body = {}; }
   if (body.refresh_token) {
     Logger.log('REFRESH TOKEN (salin ke DROPBOX_REFRESH_TOKEN):\n\n' + body.refresh_token);
   } else {
-    Logger.log('Gagal menukar code (mungkin kedaluwarsa/sudah dipakai — ulangi otorisasi): ' + res.getContentText());
+    Logger.log('Gagal menukar code (mungkin kedaluwarsa/sudah dipakai — ulangi otorisasi):\n' + text);
   }
 }
 
