@@ -59,9 +59,7 @@ function handlePhoto(msg, fileId, chatId) {
       sendMessage(chatId, '🤔 Nominal tidak terbaca jelas dari foto. Coba foto ulang atau ketik manual.');
       return;
     }
-    var kat = String(a.kategori || '').toLowerCase();
-    if (!isKategoriValid(kat, a.intent)) kat = 'lainnya';
-    a.kategori = kat;
+    a.kategori = normalisasiKategori(a.kategori, a.intent, (a.keterangan || '') + ' ' + (msg.caption || ''));
   }
   if (a.intent === 'catat' && !String(a.teks || '').trim()) {
     sendMessage(chatId, '🤔 Tulisan tidak terbaca. Coba foto lebih jelas.');

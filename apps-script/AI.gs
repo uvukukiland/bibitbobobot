@@ -38,24 +38,60 @@ function kategoriListText() {
   return 'kategori keluar: [' + keluar.join(', ') + '] ; kategori masuk: [' + masuk.join(', ') + ']';
 }
 
-/** Panduan pemetaan barang/jasa -> kategori, agar "lainnya" jarang dipakai. Dipakai teks & foto. */
+/**
+ * Kamus kata kunci -> kategori (kategori KELUAR). Satu sumber kebenaran:
+ * dipakai untuk (a) panduan prompt AI dan (b) tebakan deterministik.
+ * Tambah/ubah kata di sini saja. Hindari kata yang ambigu (mis. "tiket" sendiri).
+ */
+var KATEGORI_KEYWORDS = {
+  makan: ['makan', 'makanan', 'minuman', 'jajan', 'jajanan', 'ngemil', 'cemilan', 'nongki', 'kopi', 'ngopi', 'cafe', 'kafe', 'resto', 'restoran', 'warung', 'warteg', 'gofood', 'grabfood', 'shopeefood', 'snack', 'kue', 'roti', 'catering', 'nasi', 'ayam', 'bakso', 'mie', 'sate', 'martabak', 'gorengan', 'jus', 'boba', 'seblak', 'air mineral'],
+  transport: ['bensin', 'bbm', 'pertalite', 'pertamax', 'solar', 'dexlite', 'ojek', 'ojol', 'grab', 'gojek', 'gocar', 'grabbike', 'grabcar', 'maxim', 'indriver', 'taksi', 'taxi', 'angkot', 'busway', 'transjakarta', 'kereta', 'krl', 'mrt', 'lrt', 'commuter', 'tol', 'e-toll', 'etoll', 'parkir', 'ongkos', 'tiket pesawat', 'tiket kereta', 'tiket bus', 'tiket kapal', 'pesawat', 'servis motor', 'servis mobil', 'oli', 'tambal ban', 'pajak kendaraan', 'stnk', 'rental mobil', 'travel'],
+  belanja: ['sampo', 'shampoo', 'sabun', 'odol', 'pasta gigi', 'sikat gigi', 'deterjen', 'pewangi', 'skincare', 'kosmetik', 'bedak', 'lipstik', 'parfum', 'baju', 'pakaian', 'celana', 'kaos', 'kemeja', 'sepatu', 'sandal', 'tas', 'dompet', 'alat tulis', 'pulpen', 'elektronik', 'gadget', 'charger', 'shopee', 'tokopedia', 'lazada', 'tiktok shop', 'olshop', 'belanja', 'minimarket', 'indomaret', 'alfamart'],
+  tagihan: ['bpjs', 'asuransi', 'listrik', 'pln', 'token listrik', 'pdam', 'tagihan air', 'telepon', 'telkom', 'indihome', 'wifi', 'internet', 'tv kabel', 'iuran', 'cicilan', 'kartu kredit', 'angsuran', 'pbb', 'pajak bumi'],
+  pulsa: ['pulsa', 'kuota', 'paket data', 'paketan', 'telkomsel', 'indosat', 'smartfren', 'by.u'],
+  hiburan: ['netflix', 'spotify', 'disney', 'youtube premium', 'vidio', 'wetv', 'viu', 'iqiyi', 'hbo', 'bioskop', 'xxi', 'cgv', 'nonton', 'tiket konser', 'konser', 'game', 'top up game', 'mobile legend', 'genshin', 'steam', 'karaoke', 'wisata', 'liburan', 'rekreasi'],
+  kesehatan: ['obat', 'apotek', 'apotik', 'dokter', 'rumah sakit', 'klinik', 'vitamin', 'suplemen', 'vaksin', 'periksa', 'dokter gigi', 'laboratorium'],
+  pendidikan: ['sekolah', 'kuliah', 'kursus', 'les', 'bimbel', 'spp', 'uang sekolah', 'buku', 'seminar', 'pelatihan', 'training', 'webinar'],
+  rumah: ['perabot', 'furniture', 'mebel', 'perlengkapan rumah', 'perbaikan rumah', 'renovasi', 'galon', 'elpiji', 'lpg', 'gas elpiji', 'sewa rumah', 'kontrakan', 'kos', 'kost'],
+  anak: ['popok', 'pampers', 'diapers', 'susu anak', 'susu formula', 'mainan', 'perlengkapan bayi'],
+  sedekah: ['sedekah', 'zakat', 'infaq', 'infak', 'donasi', 'sumbangan', 'amal'],
+  olahraga: ['gym', 'fitness', 'membership gym', 'jogging', 'sepeda', 'futsal', 'badminton', 'renang']
+};
+
+/** Panduan pemetaan -> teks prompt (dibuat dari KATEGORI_KEYWORDS, satu sumber). */
 function kategoriHintText() {
-  return [
-    'PEMETAAN KATEGORI — petakan ke yang TERDEKAT; HINDARI "lainnya" (pakai hanya bila benar-benar tak ada yang cocok):',
-    '- makan: makanan & minuman, jajan/ngemil, kopi, cafe, resto, warung, gofood/grabfood, snack, kue, catering, sembako makanan.',
-    '- transport: bensin/bbm/pertalite/pertamax/solar, ojek/ojol/grab/gojek/gocar/maxim, taksi, angkot, bus, kereta/krl/mrt, tol/e-toll, parkir, ongkos, tiket transport (pesawat/kereta/bus), servis/oli/ban/tambal-ban kendaraan, pajak kendaraan.',
-    '- belanja: sampo, sabun, odol/pasta gigi, deterjen, skincare, kosmetik, baju/pakaian, sepatu, tas, alat tulis, elektronik kecil, belanja toko/online (shopee/tokopedia/lazada).',
-    '- tagihan: bpjs, asuransi, listrik/pln, pdam/air, telepon/telkom/indihome, internet rumah, tv kabel, iuran, cicilan/kartu kredit, pajak (non-kendaraan).',
-    '- pulsa: pulsa, kuota, paket data, top up pulsa.',
-    '- hiburan: netflix/spotify/disney+/youtube premium & langganan streaming, bioskop/nonton, tiket konser, game/top up game, karaoke, wisata/liburan.',
-    '- kesehatan: obat, apotek, dokter, rumah sakit/rs, klinik, vitamin, vaksin, periksa, gigi.',
-    '- pendidikan: sekolah, kuliah, kursus/les, spp, buku, seminar, pelatihan.',
-    '- rumah: perabot/furniture, alat rumah tangga, perbaikan rumah, galon, gas elpiji/lpg, sewa/kontrakan/kos.',
-    '- anak: popok, susu anak, mainan, perlengkapan anak.',
-    '- sedekah: sedekah, zakat, infaq, donasi, sumbangan.',
-    '- olahraga: gym/fitness, membership, alat olahraga, sepeda.',
-    'Catatan "tiket" bergantung konteks: pesawat/kereta/bus = transport; konser/bioskop = hiburan.'
-  ].join('\n');
+  var lines = ['PEMETAAN KATEGORI — petakan ke yang TERDEKAT; HINDARI "lainnya" (pakai hanya bila benar-benar tak ada yang cocok):'];
+  Object.keys(KATEGORI_KEYWORDS).forEach(function (k) {
+    lines.push('- ' + k + ': ' + KATEGORI_KEYWORDS[k].join(', ') + '.');
+  });
+  lines.push('Catatan "tiket": pesawat/kereta/bus = transport; konser/bioskop = hiburan.');
+  return lines.join('\n');
+}
+
+/** Tebak kategori dari teks via kata kunci (cocok per-kata). '' bila tak ada. */
+function tebakKategori(text) {
+  var low = ' ' + String(text || '').toLowerCase() + ' ';
+  var cats = Object.keys(KATEGORI_KEYWORDS);
+  for (var i = 0; i < cats.length; i++) {
+    var kws = KATEGORI_KEYWORDS[cats[i]];
+    for (var j = 0; j < kws.length; j++) {
+      var kw = kws[j].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex
+      if (new RegExp('\\b' + kw + '\\b', 'i').test(low)) return cats[i];
+    }
+  }
+  return '';
+}
+
+/**
+ * Tentukan kategori final: utamakan kategori valid & spesifik dari AI;
+ * bila kosong/'lainnya'/invalid, coba tebak dari konteks; terakhir 'lainnya'.
+ */
+function normalisasiKategori(rawKat, intent, konteks) {
+  var kat = String(rawKat || '').toLowerCase().trim();
+  if (isKategoriValid(kat, intent) && kat !== 'lainnya') return kat;
+  var tebak = tebakKategori(konteks || '');
+  if (tebak && isKategoriValid(tebak, intent)) return tebak;
+  return isKategoriValid(kat, intent) ? kat : 'lainnya';
 }
 
 /** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
@@ -295,9 +331,7 @@ function handleNatural(text, chatId) {
       sendMessage(chatId, '🤔 Nominalnya berapa? Sebutkan angkanya, mis. "kopi 25rb".');
       return;
     }
-    var kat = String(a.kategori || '').toLowerCase();
-    if (!isKategoriValid(kat, a.intent)) kat = 'lainnya'; // jangan pernah kosong
-    a.kategori = kat;
+    a.kategori = normalisasiKategori(a.kategori, a.intent, (a.keterangan || '') + ' ' + text);
   }
   if ((a.intent === 'tugas' || a.intent === 'catat') && !String(a.teks || '').trim()) {
     sendMessage(chatId, '🤔 Isinya apa? Coba tulis lebih lengkap.');
