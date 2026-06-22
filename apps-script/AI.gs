@@ -38,6 +38,26 @@ function kategoriListText() {
   return 'kategori keluar: [' + keluar.join(', ') + '] ; kategori masuk: [' + masuk.join(', ') + ']';
 }
 
+/** Panduan pemetaan barang/jasa -> kategori, agar "lainnya" jarang dipakai. Dipakai teks & foto. */
+function kategoriHintText() {
+  return [
+    'PEMETAAN KATEGORI — petakan ke yang TERDEKAT; HINDARI "lainnya" (pakai hanya bila benar-benar tak ada yang cocok):',
+    '- makan: makanan & minuman, jajan/ngemil, kopi, cafe, resto, warung, gofood/grabfood, snack, kue, catering, sembako makanan.',
+    '- transport: bensin/bbm/pertalite/pertamax/solar, ojek/ojol/grab/gojek/gocar/maxim, taksi, angkot, bus, kereta/krl/mrt, tol/e-toll, parkir, ongkos, tiket transport (pesawat/kereta/bus), servis/oli/ban/tambal-ban kendaraan, pajak kendaraan.',
+    '- belanja: sampo, sabun, odol/pasta gigi, deterjen, skincare, kosmetik, baju/pakaian, sepatu, tas, alat tulis, elektronik kecil, belanja toko/online (shopee/tokopedia/lazada).',
+    '- tagihan: bpjs, asuransi, listrik/pln, pdam/air, telepon/telkom/indihome, internet rumah, tv kabel, iuran, cicilan/kartu kredit, pajak (non-kendaraan).',
+    '- pulsa: pulsa, kuota, paket data, top up pulsa.',
+    '- hiburan: netflix/spotify/disney+/youtube premium & langganan streaming, bioskop/nonton, tiket konser, game/top up game, karaoke, wisata/liburan.',
+    '- kesehatan: obat, apotek, dokter, rumah sakit/rs, klinik, vitamin, vaksin, periksa, gigi.',
+    '- pendidikan: sekolah, kuliah, kursus/les, spp, buku, seminar, pelatihan.',
+    '- rumah: perabot/furniture, alat rumah tangga, perbaikan rumah, galon, gas elpiji/lpg, sewa/kontrakan/kos.',
+    '- anak: popok, susu anak, mainan, perlengkapan anak.',
+    '- sedekah: sedekah, zakat, infaq, donasi, sumbangan.',
+    '- olahraga: gym/fitness, membership, alat olahraga, sepeda.',
+    'Catatan "tiket" bergantung konteks: pesawat/kereta/bus = transport; konser/bioskop = hiburan.'
+  ].join('\n');
+}
+
 /** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
 function geminiParse(text) {
   var apiKey = cfg('GEMINI_API_KEY');
@@ -49,12 +69,12 @@ function geminiParse(text) {
     'Kamu pengurai untuk asisten keuangan & tugas pribadi berbahasa Indonesia.',
     'Ubah pesan pengguna menjadi SATU aksi terstruktur sesuai skema.',
     'intent: "keluar"=pengeluaran uang, "masuk"=pemasukan uang, "tugas"=hal yang harus dilakukan, "catat"=catatan bebas, "cari"=mencari berkas/file di Drive, "rekap"=minta ringkasan/laporan keuangan, "selesai"=menandai tugas sudah selesai, "hapus"=menghapus data, "daftar"=minta lihat daftar tugas, "unknown"=tidak yakin.',
-    'keluar/masuk: nominal = angka rupiah (ubah "25rb"->25000, "1,5jt"->1500000, "10k"->10000); kategori WAJIB diisi dengan salah satu dari daftar yang PALING cocok; bila benar-benar tak ada yang pas isi "lainnya". JANGAN pernah mengosongkan kategori. keterangan = ringkas. tanggal = YYYY-MM-DD HANYA bila pengguna menyebut waktu lampau ("kemarin"/"kemaren"/"kmrn", "2 hari lalu", "minggu lalu", tanggal tertentu); "td"/"tadi"/"barusan" = hari ini (KOSONGKAN); bila tidak disebut KOSONGKAN (hari ini = ' + today + ').',
+    'keluar/masuk: nominal = angka rupiah (ubah "25rb"->25000, "1,5jt"->1500000, "10k"->10000); kategori WAJIB diisi dengan yang PALING cocok dari daftar. HINDARI "lainnya" — hampir semua hal punya kategori lebih tepat (lihat PEMETAAN KATEGORI di bawah); pakai "lainnya" hanya bila benar-benar tak ada yang cocok. JANGAN pernah mengosongkan kategori. keterangan = ringkas. tanggal = YYYY-MM-DD HANYA bila pengguna menyebut waktu lampau ("kemarin"/"kemaren"/"kmrn", "2 hari lalu", "minggu lalu", tanggal tertentu); "td"/"tadi"/"barusan" = hari ini (KOSONGKAN); bila tidak disebut KOSONGKAN (hari ini = ' + today + ').',
     'Daftar kategori — ' + kategoriListText() + '.',
     'WAJIB paham Bahasa Indonesia santai/gaul, singkatan, & typo umum.',
     'Uang gaul/singkatan: "rb"/"ribu"/"rebu"/"k"=ribu; "jt"/"juta"=juta; "ceban"=10000; "goceng"=5000; "seceng"=1000; "cepek"=100; "gopek"=500; "gocap"=50000. Contoh "abis goceng"->5000, "gajian 5jt"->5000000, "kopi 2rb"->2000.',
     'Kata ganti/umum: "gw/gue/ane/aku/sy/saya"=pengguna; "duit/duwit/cuan/fulus"=uang; "tf/transfer"=transaksi transfer; "byr/bayar"=pengeluaran; "gajian/gaji cair/gaji masuk"=pemasukan gaji.',
-    'Sinonim kategori (pakai untuk menebak kategori): "jajan/jajanan/ngemil/nongki/makan siang"=makan; "bensin/bbm/ojek/ojol/grab/gojek/gocar/parkir/tol"=transport; "pulsa/kuota/paket data/wifi"=pulsa; "token listrik/pln/pdam/air/internet rumah"=tagihan atau rumah; "sedekah/zakat/infaq/donasi"=sedekah; "obat/dokter/rs/klinik"=kesehatan; "sekolah/kuliah/kursus/spp/buku"=pendidikan.',
+    kategoriHintText(),
     'Intent gaul/singkatan: "catetin/catet dong/notes"=catat; "ingetin/ingatin/jangan lupa/reminder/todo"=tugas; "cariin/carikan/search"=cari; "abis berapa sih/laporan dong/cek keuangan/rekap dong"=rekap; "apus/apusin/ilangin/delete/del"=hapus; "kelarin/udah beres/rampung/done"=selesai; "liat tugas/ada tugas apa/todo list"=daftar.',
     'cari: query = kata kunci nama berkas (mis. "cari file laporan" -> query "laporan").',
     'tugas: teks = isi tugas; jatuh_tempo = YYYY-MM-DD bila disebut (hari ini = ' + today + ').',

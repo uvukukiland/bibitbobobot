@@ -86,7 +86,8 @@ function geminiVision(blob, hint) {
     'jenis "struk" (struk/nota belanja): intent "keluar"; nominal = TOTAL akhir yang DIBAYAR (bukan subtotal, bukan kembalian, bukan pajak terpisah); keterangan = nama toko; tanggal dari struk bila ada.',
     'jenis "transfer" (bukti transfer / mutasi m-banking / e-wallet): jika uang DITERIMA pengguna -> intent "masuk"; jika uang KELUAR/dibayar -> intent "keluar"; nominal = jumlah transaksi; keterangan = tujuan/sumber bila terbaca.',
     'jenis "catatan" (tulisan tangan / memo): intent "catat"; teks = transkripsi isi tulisan.',
-    'kategori: WAJIB pilih yang PALING cocok dari daftar; bila tak ada yang pas isi "lainnya". JANGAN dikosongkan. Daftar — ' + kategoriListText() + '.',
+    'kategori: WAJIB pilih yang PALING cocok dari daftar. HINDARI "lainnya" (lihat PEMETAAN di bawah); pakai hanya bila benar-benar tak ada yang cocok. JANGAN dikosongkan. Daftar — ' + kategoriListText() + '.',
+    kategoriHintText(),
     'nominal = angka bulat tanpa titik/koma (mis. 87500). tanggal = YYYY-MM-DD (hari ini = ' + today + ').',
     'Bila gambar buram / bukan ketiga jenis itu -> jenis "unknown", intent "unknown".'
   ].join('\n');
