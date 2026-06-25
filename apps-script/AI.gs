@@ -82,14 +82,26 @@ function tebakKategori(text) {
   return '';
 }
 
+/** Cari kategori dari teks: lewat kata kunci ATAU nama kategori persis (selain "lainnya"). '' bila tak ada. */
+function cariKategori(text) {
+  var kat = tebakKategori(text);
+  if (kat) return kat;
+  var toks = String(text).toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/);
+  for (var i = 0; i < toks.length; i++) {
+    if (toks[i].length >= 3 && toks[i] !== 'lainnya' &&
+        (isKategoriValid(toks[i], 'keluar') || isKategoriValid(toks[i], 'masuk'))) return toks[i];
+  }
+  return '';
+}
+
 /**
  * Tentukan kategori final: utamakan kategori valid & spesifik dari AI;
- * bila kosong/'lainnya'/invalid, coba tebak dari konteks; terakhir 'lainnya'.
+ * bila kosong/'lainnya'/invalid, coba dari konteks (kata kunci / nama kategori); terakhir 'lainnya'.
  */
 function normalisasiKategori(rawKat, intent, konteks) {
   var kat = String(rawKat || '').toLowerCase().trim();
   if (isKategoriValid(kat, intent) && kat !== 'lainnya') return kat;
-  var tebak = tebakKategori(konteks || '');
+  var tebak = cariKategori(konteks || '');
   if (tebak && isKategoriValid(tebak, intent)) return tebak;
   return isKategoriValid(kat, intent) ? kat : 'lainnya';
 }
@@ -126,13 +138,7 @@ function tipeKategori(kat) {
 function tebakAksiKeuangan(text) {
   var nominal = parseNominalLoose(text);
   if (!nominal) return null;
-  var kat = tebakKategori(text); // via kata kunci
-  if (!kat) {                    // atau token persis nama kategori di sheet
-    var toks = String(text).toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/);
-    for (var i = 0; i < toks.length; i++) {
-      if (toks[i].length >= 3 && (isKategoriValid(toks[i], 'keluar') || isKategoriValid(toks[i], 'masuk'))) { kat = toks[i]; break; }
-    }
-  }
+  var kat = cariKategori(text);
   if (!kat) return null;
   return { intent: tipeKategori(kat), nominal: nominal, kategori: kat, keterangan: '', sumber: 'bot-ai' };
 }
