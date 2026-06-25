@@ -32,6 +32,7 @@ function route(text, chatId) {
     case '/daftar': cmdDaftar(args, chatId); break;
     case '/catatan': cmdCatatan(args, chatId); break;
     case '/agenda': cmdAgenda(chatId); break;
+    case '/kategori': cmdKategori(args, chatId); break;
     case '/saldo':  cmdSaldo(chatId); break;
     case '/status': cmdStatus(chatId); break;
     case '/rekap':  cmdRekap(args, chatId); break;
@@ -59,6 +60,7 @@ function helpText() {
     '/selesai <id-tugas>',
     '/catat <teks>  ·  /catatan [kata] (lihat)',
     '/agenda (acara mendatang)  ·  /saldo',
+    '/kategori [nama] (daftar kategori)',
     '/cari <kata> (Drive)  ·  /dropbox <kata>',
     '/rekap [YYYY-MM] (ringkasan bulan)  ·  /status',
     '/edit terakhir|tugas <id>|catatan … (perbaiki)',

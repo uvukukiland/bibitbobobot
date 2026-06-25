@@ -436,7 +436,39 @@ function handleViewShortcut(text, chatId) {
   if (/\bsaldo\b/.test(low) || /\b(uang|duit)ku\b/.test(low)) { cmdSaldo(chatId); return true; }
   if (/\b(catatan|notes?)\b/.test(low) && lihat) { cmdCatatan([], chatId); return true; }
   if (/\b(agenda|jadwal|acara)\b/.test(low) && lihat) { cmdAgenda(chatId); return true; }
+  if (/\bkategori\b/.test(low)) { cmdKategori([], chatId); return true; }
   return false;
+}
+
+/** /kategori [nama] — daftar kategori dari sheet; dengan nama: contoh kata kuncinya. */
+function cmdKategori(args, chatId) {
+  var rows = readAll('Kategori');
+  var arg = String((args && args.join ? args.join(' ') : args) || '').toLowerCase().trim();
+
+  if (arg) { // /kategori <nama> -> contoh kata kunci
+    var ada = false;
+    for (var i = 1; i < rows.length; i++) { if (String(rows[i][0]).toLowerCase() === arg) { ada = true; break; } }
+    if (!ada) { sendMessage(chatId, '❌ Kategori "' + arg + '" tidak ada. Ketik /kategori untuk daftar.'); return; }
+    var kws = (typeof KATEGORI_KEYWORDS !== 'undefined' && KATEGORI_KEYWORDS[arg]) ? KATEGORI_KEYWORDS[arg] : [];
+    if (kws.length) sendMessage(chatId, '🏷️ Contoh kata kunci "' + arg + '":\n' + kws.slice(0, 40).join(', ') + (kws.length > 40 ? ', dll' : ''));
+    else sendMessage(chatId, '🏷️ Kategori "' + arg + '" ada (belum punya kata kunci otomatis). Sebut namanya langsung saat mencatat, mis. "' + arg + ' 50rb".');
+    return;
+  }
+
+  var keluar = [], masuk = [], both = [];
+  for (var j = 1; j < rows.length; j++) {
+    var nama = rows[j][0]; if (!nama) continue;
+    var t = String(rows[j][1]).toLowerCase();
+    if (t === 'masuk') masuk.push(nama);
+    else if (t === 'both') both.push(nama);
+    else keluar.push(nama);
+  }
+  var out = ['🏷️ Daftar Kategori', '',
+    '💸 Pengeluaran (' + keluar.length + '):', keluar.join(', ') || '-',
+    '', '💰 Pemasukan (' + masuk.length + '):', masuk.join(', ') || '-'];
+  if (both.length) out.push('', '↔️ Keduanya: ' + both.join(', '));
+  out.push('', 'Ketik /kategori <nama> untuk contoh kata kunci (mis. /kategori rumah).');
+  sendMessage(chatId, out.join('\n'));
 }
 
 /** Tulis aksi ke sheet setelah dikonfirmasi. Tetap validasi (jaga data bersih). */
