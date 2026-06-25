@@ -94,6 +94,49 @@ function normalisasiKategori(rawKat, intent, konteks) {
   return isKategoriValid(kat, intent) ? kat : 'lainnya';
 }
 
+/** Parse nominal longgar untuk fallback: "2.502.500", "25rb", "1,5jt", "10k". null bila tak ada. */
+function parseNominalLoose(text) {
+  var s = String(text || '').toLowerCase();
+  var m = s.match(/(\d[\d.,]*)\s*(juta|jt|ribu|rb|k)\b/);
+  if (m) {
+    var num = parseFloat(m[1].replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+    if (isNaN(num)) return null;
+    var v = Math.round(num * (/juta|jt/.test(m[2]) ? 1000000 : 1000));
+    return v > 0 ? v : null;
+  }
+  m = s.match(/\d[\d.,]*\d|\d+/);
+  if (m) {
+    var cleaned = m[0].replace(/[.,]/g, '');
+    if (/^\d+$/.test(cleaned)) { var n = parseInt(cleaned, 10); return n > 0 ? n : null; }
+  }
+  return null;
+}
+
+/** Tipe kategori: 'masuk' bila kategori pemasukan, selain itu 'keluar'. */
+function tipeKategori(kat) {
+  if (isKategoriValid(kat, 'keluar')) return 'keluar';
+  if (isKategoriValid(kat, 'masuk')) return 'masuk';
+  return 'keluar';
+}
+
+/**
+ * Fallback saat AI tak paham: tangkap pola singkat "<kategori/kata-kunci> <nominal>"
+ * (mis. "rumah 2.502.500", "galon 25rb"). Return aksi keuangan atau null.
+ */
+function tebakAksiKeuangan(text) {
+  var nominal = parseNominalLoose(text);
+  if (!nominal) return null;
+  var kat = tebakKategori(text); // via kata kunci
+  if (!kat) {                    // atau token persis nama kategori di sheet
+    var toks = String(text).toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/);
+    for (var i = 0; i < toks.length; i++) {
+      if (toks[i].length >= 3 && (isKategoriValid(toks[i], 'keluar') || isKategoriValid(toks[i], 'masuk'))) { kat = toks[i]; break; }
+    }
+  }
+  if (!kat) return null;
+  return { intent: tipeKategori(kat), nominal: nominal, kategori: kat, keterangan: '', sumber: 'bot-ai' };
+}
+
 /** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
 function geminiParse(text) {
   var apiKey = cfg('GEMINI_API_KEY');
@@ -110,6 +153,7 @@ function geminiParse(text) {
     'WAJIB paham Bahasa Indonesia santai/gaul, singkatan, & typo umum.',
     'Uang gaul/singkatan: "rb"/"ribu"/"rebu"/"k"=ribu; "jt"/"juta"=juta; "ceban"=10000; "goceng"=5000; "seceng"=1000; "cepek"=100; "gopek"=500; "gocap"=50000. Contoh "abis goceng"->5000, "gajian 5jt"->5000000, "kopi 2rb"->2000.',
     'Kata ganti/umum: "gw/gue/ane/aku/sy/saya"=pengguna; "duit/duwit/cuan/fulus"=uang; "tf/transfer"=transaksi transfer; "byr/bayar"=pengeluaran; "gajian/gaji cair/gaji masuk"=pemasukan gaji.',
+    'Pola singkat "<kategori> <angka>" atau "<angka> <kategori>" = pengeluaran (intent keluar) kategori itu. Contoh "rumah 2.502.500" -> keluar 2502500 kategori rumah; "makan 25rb" -> keluar 25000 makan.',
     kategoriHintText(),
     'Intent gaul/singkatan: "catetin/catet dong/notes"=catat; "ingetin/ingatin/jangan lupa/reminder/todo"=tugas; "cariin/carikan/search"=cari; "abis berapa sih/laporan dong/cek keuangan/rekap dong"=rekap; "apus/apusin/ilangin/delete/del"=hapus; "kelarin/udah beres/rampung/done"=selesai; "liat tugas/ada tugas apa/todo list"=daftar.',
     'cari: query = kata kunci nama berkas (mis. "cari file laporan" -> query "laporan").',
@@ -268,6 +312,9 @@ function handleNatural(text, chatId) {
   catch (e) { logEvent('ERROR', 'gemini_call_threw', String(e)); sendMessage(chatId, '⚠️ AI sedang sibuk/limit. Coba lagi sebentar, atau pakai perintah /help.'); return; }
 
   if (!a || a.intent === 'unknown') {
+    // Pola singkat "<kategori> <nominal>" (mis. "rumah 2.502.500") -> pengeluaran.
+    var fb = tebakAksiKeuangan(text);
+    if (fb) { setPending(chatId, fb); askConfirm(chatId, confirmText(fb)); return; }
     sendMessage(chatId, [
       '🤔 Belum paham maksudnya. Contoh yang bisa saya proses:',
       '• "jajan kopi 25rb"  (catat pengeluaran)',
