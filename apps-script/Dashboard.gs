@@ -158,7 +158,7 @@ function scanKeuangan(b, prev) {
     .sort(function (x, y) { return y[1] - x[1]; });
   return {
     masuk: masuk, keluar: keluar, keluarPrev: keluarPrev, nTx: nTx,
-    saldoTotal: saldoTotal, perKat: perKatSorted, recent: all.slice(0, 8)
+    saldoTotal: saldoTotal + saldoArsip(), perKat: perKatSorted, recent: all.slice(0, 8)
   };
 }
 

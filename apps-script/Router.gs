@@ -62,7 +62,7 @@ function helpText() {
     '/agenda (acara mendatang)  ·  /saldo',
     '/kategori [nama] (daftar kategori)',
     '/cari <kata> (Drive)  ·  /dropbox <kata>',
-    '/rekap [YYYY-MM] (ringkasan bulan)  ·  /status',
+    '/rekap [YYYY-MM | YYYY] (bulan/tahun)  ·  /status',
     '/edit terakhir|tugas <id>|catatan … (perbaiki)',
     '/hapus terakhir | tugas <id> | bulan YYYY-MM',
     '/ping',

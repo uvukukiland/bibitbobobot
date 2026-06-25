@@ -26,26 +26,117 @@ function inBulan(d, b) {
   return dt.getFullYear() === b.y && (dt.getMonth() + 1) === b.m;
 }
 
+// ---------- Arsip per tahun ----------
+
+var ARSIP_PREFIX = 'Arsip ';
+
+/** Net saldo dari semua transaksi yang sudah diarsipkan (disimpan di Script Property). */
+function saldoArsip() {
+  return Number(cfgOptional('ARSIP_SALDO', '0')) || 0;
+}
+
+/** Net (masuk-keluar) dari sheet Keuangan aktif. */
+function netKeuangan() {
+  var k = readAll('Keuangan'), net = 0;
+  for (var i = 1; i < k.length; i++) {
+    var t = String(k[i][1]).toLowerCase(), n = Number(k[i][2]) || 0;
+    if (t === 'masuk') net += n; else if (t === 'keluar') net -= n;
+  }
+  return net;
+}
+
+/** Saldo total semua waktu = arsip + Keuangan aktif. */
+function saldoSemua() { return saldoArsip() + netKeuangan(); }
+
+/** Baris [waktu,tipe,nominal,kategori,ket,sumber] tahun tsb, dari Keuangan + Arsip-tahun. */
+function rowsKeuanganTahun(year) {
+  var out = [];
+  var k = readAll('Keuangan');
+  for (var i = 1; i < k.length; i++) {
+    var dt = (k[i][0] instanceof Date) ? k[i][0] : new Date(k[i][0]);
+    if (!isNaN(dt.getTime()) && dt.getFullYear() === year) out.push(k[i]);
+  }
+  var a = ss().getSheetByName(ARSIP_PREFIX + year);
+  if (a && a.getLastRow() > 1) {
+    var ar = a.getRange(2, 1, a.getLastRow() - 1, 7).getValues(); // bulan,waktu,tipe,nominal,kategori,ket,sumber
+    for (var j = 0; j < ar.length; j++) out.push([ar[j][1], ar[j][2], ar[j][3], ar[j][4], ar[j][5], ar[j][6]]);
+  }
+  return out;
+}
+
 /**
- * /rekap [YYYY-MM] → ringkasan pemasukan/pengeluaran/saldo + kategori teratas.
- * Tanpa argumen = bulan berjalan.
+ * Pindahkan transaksi TAHUN LAMPAU (year < tahun ini) dari Keuangan ke sheet "Arsip <tahun>".
+ * Jalankan dari editor (atau lewat trigger tahunan). Aman diulang. Saldo total tetap akurat.
+ */
+function arsipKeuangan() {
+  var book = ss();
+  var sh = sheet('Keuangan');
+  var data = sh.getDataRange().getValues();
+  var nowYear = (new Date()).getFullYear();
+  var tz = Session.getScriptTimeZone();
+
+  var perTahun = {}, hapusIdx = [], netDiarsip = 0;
+  for (var i = 1; i < data.length; i++) {
+    var dt = (data[i][0] instanceof Date) ? data[i][0] : new Date(data[i][0]);
+    if (isNaN(dt.getTime())) continue;
+    var y = dt.getFullYear();
+    if (y >= nowYear) continue; // hanya tahun yang sudah lewat
+    var t = String(data[i][1]).toLowerCase(), n = Number(data[i][2]) || 0;
+    if (t === 'masuk') netDiarsip += n; else if (t === 'keluar') netDiarsip -= n;
+    (perTahun[y] = perTahun[y] || []).push([Utilities.formatDate(dt, tz, 'yyyy-MM'),
+      data[i][0], data[i][1], data[i][2], data[i][3], data[i][4], data[i][5]]);
+    hapusIdx.push(i + 1);
+  }
+
+  var tahun = Object.keys(perTahun);
+  if (!tahun.length) { Logger.log('Tidak ada transaksi tahun lampau untuk diarsipkan.'); return; }
+
+  tahun.forEach(function (y) {
+    var a = book.getSheetByName(ARSIP_PREFIX + y) || book.insertSheet(ARSIP_PREFIX + y);
+    if (a.getLastRow() === 0) {
+      a.appendRow(['bulan', 'waktu', 'tipe', 'nominal', 'kategori', 'keterangan', 'sumber']);
+      a.setFrozenRows(1);
+    }
+    a.getRange(a.getLastRow() + 1, 1, perTahun[y].length, 7).setValues(perTahun[y]);
+    a.getRange(2, 2, a.getLastRow() - 1, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    a.getRange(2, 4, a.getLastRow() - 1, 1).setNumberFormat('"Rp"#,##0');
+  });
+
+  for (var j = hapusIdx.length - 1; j >= 0; j--) sh.deleteRow(hapusIdx[j]);
+  PropertiesService.getScriptProperties().setProperty('ARSIP_SALDO', String(saldoArsip() + netDiarsip));
+
+  logEvent('INFO', 'arsip_done', tahun.join(',') + ' (' + hapusIdx.length + ' baris)');
+  Logger.log('Arsip selesai: ' + hapusIdx.length + ' transaksi -> ' +
+    tahun.map(function (y) { return ARSIP_PREFIX + y; }).join(', ') + '.');
+  try { refreshDashboard(); } catch (e) {}
+}
+
+/** Pasang trigger arsip otomatis tiap tahun (5 Januari). Jalankan sekali dari editor. */
+function installArsipTrigger() {
+  removeTriggers(['arsipKeuangan']);
+  ScriptApp.newTrigger('arsipKeuangan').timeBased().onMonthDay(5).atHour(1).create();
+  Logger.log('Trigger arsip terpasang (tiap tgl 5, mengarsip tahun lampau bila ada).');
+}
+
+// ---------- Rekap ----------
+
+/**
+ * /rekap            → bulan berjalan
+ * /rekap YYYY-MM    → bulan tertentu (otomatis baca arsip bila tahunnya sudah diarsip)
+ * /rekap YYYY       → ringkasan satu tahun (per bulan)
  */
 function cmdRekap(args, chatId) {
-  var b = parseBulan(args[0]);
-  if (!b) { sendMessage(chatId, '❌ Format bulan salah. Pakai /rekap atau /rekap YYYY-MM, mis. /rekap 2026-06.'); return; }
+  var spec = String(args[0] || '').trim();
+  if (/^\d{4}$/.test(spec)) { cmdRekapTahun(parseInt(spec, 10), chatId); return; }
 
-  var rows = readAll('Keuangan');
-  var masuk = 0, keluar = 0, nTx = 0;
-  var perKat = {};            // kategori -> total pengeluaran bulan ini
-  var saldoTotal = 0;         // semua waktu (semua bulan)
+  var b = parseBulan(spec);
+  if (!b) { sendMessage(chatId, '❌ Format salah. Pakai /rekap, /rekap YYYY-MM (mis. 2026-06), atau /rekap YYYY (mis. 2025).'); return; }
 
-  for (var i = 1; i < rows.length; i++) {
-    var tipe = String(rows[i][1]).toLowerCase();
-    var nom = Number(rows[i][2]) || 0;
-    if (tipe === 'masuk') saldoTotal += nom;
-    else if (tipe === 'keluar') saldoTotal -= nom;
-
+  var rows = rowsKeuanganTahun(b.y);
+  var masuk = 0, keluar = 0, nTx = 0, perKat = {};
+  for (var i = 0; i < rows.length; i++) {
     if (!inBulan(rows[i][0], b)) continue;
+    var tipe = String(rows[i][1]).toLowerCase(), nom = Number(rows[i][2]) || 0;
     nTx++;
     if (tipe === 'masuk') masuk += nom;
     else if (tipe === 'keluar') {
@@ -55,30 +146,49 @@ function cmdRekap(args, chatId) {
     }
   }
 
-  if (nTx === 0) {
-    sendMessage(chatId, '📊 Rekap ' + labelBulan(b) + '\nBelum ada transaksi di bulan ini.');
-    return;
-  }
+  if (nTx === 0) { sendMessage(chatId, '📊 Rekap ' + labelBulan(b) + '\nBelum ada transaksi di bulan ini.'); return; }
 
-  var saldoBulan = masuk - keluar;
   var top = Object.keys(perKat).map(function (k) { return [k, perKat[k]]; })
     .sort(function (a, c) { return c[1] - a[1]; }).slice(0, 5);
-
   var lines = [
-    '📊 Rekap ' + labelBulan(b),
-    '',
+    '📊 Rekap ' + labelBulan(b), '',
     '💰 Pemasukan : Rp' + formatRupiah(masuk),
     '💸 Pengeluaran: Rp' + formatRupiah(keluar),
-    '🟦 Saldo bulan: Rp' + formatRupiah(saldoBulan),
+    '🟦 Saldo bulan: Rp' + formatRupiah(masuk - keluar),
     '(' + nTx + ' transaksi)'
   ];
   if (top.length) {
     lines.push('', 'Pengeluaran teratas:');
-    top.forEach(function (t, i) {
-      lines.push((i + 1) + '. ' + t[0] + ' — Rp' + formatRupiah(t[1]));
-    });
+    top.forEach(function (t, i) { lines.push((i + 1) + '. ' + t[0] + ' — Rp' + formatRupiah(t[1])); });
   }
-  lines.push('', '💼 Saldo total (semua waktu): Rp' + formatRupiah(saldoTotal));
+  lines.push('', '💼 Saldo total (semua waktu): Rp' + formatRupiah(saldoSemua()));
+  sendMessage(chatId, lines.join('\n'));
+}
+
+/** Ringkasan satu tahun: per bulan + total. Baca Keuangan + Arsip-tahun. */
+function cmdRekapTahun(year, chatId) {
+  var rows = rowsKeuanganTahun(year);
+  var perBulan = {}, totMasuk = 0, totKeluar = 0, nTx = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var dt = (rows[i][0] instanceof Date) ? rows[i][0] : new Date(rows[i][0]);
+    if (isNaN(dt.getTime()) || dt.getFullYear() !== year) continue;
+    var m = dt.getMonth() + 1, tipe = String(rows[i][1]).toLowerCase(), nom = Number(rows[i][2]) || 0;
+    if (!perBulan[m]) perBulan[m] = [0, 0];
+    nTx++;
+    if (tipe === 'masuk') { perBulan[m][0] += nom; totMasuk += nom; }
+    else if (tipe === 'keluar') { perBulan[m][1] += nom; totKeluar += nom; }
+  }
+  if (nTx === 0) { sendMessage(chatId, '📅 Rekap ' + year + '\nBelum ada transaksi di tahun itu.'); return; }
+
+  var lines = ['📅 Rekap Tahun ' + year + ' (' + nTx + ' transaksi)', ''];
+  for (var mo = 1; mo <= 12; mo++) {
+    if (!perBulan[mo]) continue;
+    lines.push('• ' + MONTH_ID[mo - 1] + ': +Rp' + formatRupiah(perBulan[mo][0]) + ' / -Rp' + formatRupiah(perBulan[mo][1]));
+  }
+  lines.push('',
+    '💰 Total masuk : Rp' + formatRupiah(totMasuk),
+    '💸 Total keluar: Rp' + formatRupiah(totKeluar),
+    '🟦 Selisih     : Rp' + formatRupiah(totMasuk - totKeluar));
   sendMessage(chatId, lines.join('\n'));
 }
 
