@@ -43,7 +43,12 @@ function handlePhoto(msg, fileId, chatId) {
   try { a = geminiVision(blob, msg.caption || ''); } catch (e) { logEvent('ERROR', 'vision_failed', String(e)); }
 
   if (!a || a.jenis === 'unknown' || a.intent === 'unknown' || !a.intent) {
-    sendMessage(chatId, '🤔 Belum bisa mengenali isi foto. Coba foto lebih jelas & terang, atau ketik manual.');
+    sendMessage(chatId,
+      '🤔 Belum bisa mengenali isi foto. Tips agar terbaca:\n' +
+      '• Lebih terang (hindari bayangan/gelap)\n' +
+      '• Tegak lurus dari atas, jangan miring\n' +
+      '• Pastikan bagian TOTAL (bawah struk) ikut terfoto\n\n' +
+      'Atau ketik manual, mis. "belanja 248200 di Toko A".');
     return;
   }
 
@@ -74,50 +79,105 @@ function handlePhoto(msg, fileId, chatId) {
   askConfirm(chatId, label + ' terbaca:\n' + confirmText(a) + (url ? '\n🗂️ Arsip: ' + url : ''));
 }
 
-/** Kirim gambar ke Gemini, kembalikan objek aksi {jenis,intent,...} atau null. */
+/** Model untuk membaca gambar (bisa beda dari model teks via GEMINI_VISION_MODEL, mis. gemini-2.5-pro). */
+function geminiVisionModel() {
+  return cfgOptional('GEMINI_VISION_MODEL', cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash'));
+}
+
+/**
+ * Baca gambar via Gemini — dua lapis agar andal:
+ *  Pass 1: ekstraksi terstruktur ketat (suhu 0).
+ *  Pass 2 "salvage": bila pass 1 gagal, ulang dengan instruksi lebih agresif & suhu sedikit naik.
+ * Mengembalikan objek aksi {jenis,intent,...} atau null.
+ */
 function geminiVision(blob, hint) {
+  var b64 = Utilities.base64Encode(blob.getBytes());
+  var mime = blob.getContentType();
+
+  var a = geminiVisionCall(b64, mime, hint, false);
+  if (visionUsable(a)) return a;
+
+  logEvent('INFO', 'vision_salvage', 'pass-1 gagal; mencoba pembacaan teliti');
+  var b = geminiVisionCall(b64, mime, hint, true);
+  if (visionUsable(b)) return b;
+
+  return a || b; // mungkin "unknown" — biar pesan ke pengguna menyesuaikan
+}
+
+/** Apakah hasil vision layak dipakai (jenis/intent jelas + nominal ada untuk transaksi). */
+function visionUsable(a) {
+  if (!a || !a.jenis || a.jenis === 'unknown' || !a.intent || a.intent === 'unknown') return false;
+  if (a.intent === 'keluar' || a.intent === 'masuk') {
+    if (a.jenis === 'resi') return true;          // ongkir boleh 0 (tak tertera) — ditangani di handlePhoto
+    return Number(a.nominal) > 0;
+  }
+  if (a.intent === 'catat') return String(a.teks || '').trim().length > 0;
+  return true;
+}
+
+/** Satu panggilan Gemini Vision. salvage=true → prompt lebih agresif + suhu naik. */
+function geminiVisionCall(b64, mime, hint, salvage) {
   var apiKey = cfg('GEMINI_API_KEY');
-  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + geminiVisionModel() + ':generateContent?key=' + apiKey;
   var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
   var sys = [
     'Kamu membaca GAMBAR untuk asisten keuangan & catatan pribadi berbahasa Indonesia.',
     'Tentukan jenis gambar, lalu ubah jadi SATU aksi terstruktur sesuai skema.',
-    'jenis "struk" (struk/nota belanja): intent "keluar"; nominal = TOTAL akhir yang DIBAYAR. Cari label seperti "TOTAL", "GRAND TOTAL", "BAYARAN", "BAYAR", "TUNAI", "DEBIT", "T-MDR", "TOTAL BAYAR" — biasanya angka TERBESAR & PALING BAWAH; JANGAN ambil subtotal, kembalian, diskon, atau PPN terpisah. keterangan = nama toko/merchant. tanggal dari struk bila ada.',
-    'jenis "transfer" (bukti transfer / mutasi m-banking / e-wallet): jika uang DITERIMA pengguna -> intent "masuk"; jika uang KELUAR/dibayar -> intent "keluar"; nominal = jumlah transaksi; keterangan = tujuan/sumber bila terbaca.',
+    'jenis "struk" (struk/nota belanja/kasir): intent "keluar"; nominal = TOTAL akhir yang DIBAYAR. Cari label "TOTAL", "GRAND TOTAL", "BAYARAN", "BAYAR", "TUNAI", "CASH", "DEBIT", "T-MDR", "TOTAL BAYAR", "TOTAL BELANJA", "TOTAL HARGA" — biasanya angka TERBESAR & PALING BAWAH. JANGAN ambil subtotal, kembalian/"KEMBALI", diskon, poin, atau PPN terpisah. keterangan = nama toko/merchant. tanggal dari struk bila ada.',
+    'jenis "transfer" (bukti transfer / mutasi m-banking / e-wallet / QRIS — BCA, Mandiri/Livin, BRI/BRImo, BNI, blu, Jago, GoPay, OVO, DANA, ShopeePay, LinkAja): jika uang DITERIMA pengguna -> intent "masuk"; jika uang KELUAR/dibayar/ditransfer -> intent "keluar"; nominal = jumlah transaksi ("Nominal"/"Total"/"Jumlah"/"Amount"); keterangan = nama penerima/tujuan atau sumber bila terbaca.',
     'jenis "resi" (resi/struk pengiriman paket kurir: JNE, J&T, SiCepat, AnterAja, Pos, Ninja, Lion Parcel, dll): intent "keluar"; kategori "transport"; nominal = BIAYA KIRIM / ONGKIR yang dibayar (cari label "Ongkir", "Biaya Kirim", "Total Bayar", "Cost"); JIKA ongkir tidak tertera angkanya, set nominal 0. keterangan = "Ongkir <nama kurir> <nomor resi>" (nomor resi = kode pelacakan alfanumerik panjang; salin sepersis mungkin, sertakan walau ragu).',
-    'jenis "catatan" (tulisan tangan / memo): intent "catat"; teks = transkripsi isi tulisan.',
+    'jenis "catatan" (tulisan tangan / memo / daftar): intent "catat"; teks = transkripsi isi tulisan selengkapnya.',
     'kategori: WAJIB pilih yang PALING cocok dari daftar. HINDARI "lainnya" (lihat PEMETAAN di bawah); pakai hanya bila benar-benar tak ada yang cocok. JANGAN dikosongkan. Daftar — ' + kategoriListText() + '.',
     kategoriHintText(),
-    'nominal = angka bulat tanpa titik/koma (mis. 87500). tanggal = YYYY-MM-DD (hari ini = ' + today + ').',
-    'PENTING: JANGAN mudah menyerah. Gambar boleh gelap/miring/terpotong sebagian — selama ada angka total/jumlah yang bisa dibaca, TETAP ekstrak. Tebak nama toko dari teks yang terbaca walau tidak sempurna.',
-    'Pakai "unknown" HANYA bila benar-benar TIDAK ADA angka nominal yang terbaca sama sekali, atau gambar jelas bukan struk/transfer/resi/catatan (mis. foto pemandangan/orang).'
-  ].join('\n');
+    'nominal = angka bulat tanpa titik/koma/Rp (mis. "248.200" -> 248200; "Rp 87.500" -> 87500). tanggal = YYYY-MM-DD (hari ini = ' + today + ').',
+    'PENTING: JANGAN mudah menyerah. Gambar boleh gelap/miring/buram/terpotong — selama ADA satu angka total/jumlah yang bisa kamu baca, TETAP ekstrak. Tebak nama toko dari teks yang terbaca walau tidak sempurna.',
+    'Pakai "unknown" HANYA bila benar-benar TIDAK ADA angka nominal terbaca sama sekali, atau gambar jelas bukan struk/transfer/resi/catatan (mis. foto pemandangan/orang/produk tanpa harga).'
+  ];
+  if (salvage) {
+    sys.push('MODE TELITI: pembacaan pertama gagal. Periksa ULANG gambar baris demi baris, fokus ke area angka & bagian bawah struk. Pilih kemungkinan TERBAIK; lebih baik menebak total yang masuk akal daripada menyerah. "unknown" adalah pilihan TERAKHIR.');
+  }
 
   var parts = [
-    { inline_data: { mime_type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) } },
+    { inline_data: { mime_type: mime, data: b64 } },
     { text: 'Baca gambar ini.' + (hint ? ' Konteks dari pengguna: ' + hint : '') }
   ];
 
   var payload = {
-    systemInstruction: { parts: [{ text: sys }] },
+    systemInstruction: { parts: [{ text: sys.join('\n') }] },
     contents: [{ parts: parts }],
-    generationConfig: { responseMimeType: 'application/json', responseSchema: PHOTO_SCHEMA, temperature: 0 }
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: PHOTO_SCHEMA,
+      temperature: salvage ? 0.25 : 0,
+      maxOutputTokens: 1024
+    }
   };
 
-  var res = UrlFetchApp.fetch(url, {
-    method: 'post', contentType: 'application/json',
-    payload: JSON.stringify(payload), muteHttpExceptions: true
-  });
-  var body;
-  try { body = JSON.parse(res.getContentText()); } catch (e) { body = null; }
-  if (!body || !body.candidates || !body.candidates[0]) {
-    logEvent('ERROR', 'gemini_vision_failed', String(res.getResponseCode()) + ' ' + res.getContentText().slice(0, 300));
-    return null;
-  }
+  var body = geminiVisionFetch(url, payload);
+  if (!body || !body.candidates || !body.candidates[0]) return null;
   try { return JSON.parse(body.candidates[0].content.parts[0].text); }
   catch (e) { logEvent('ERROR', 'gemini_vision_parse_failed', String(e)); return null; }
+}
+
+/** POST ke Gemini dengan retry pada error sementara (429/500/503 — server sibuk). */
+function geminiVisionFetch(url, payload) {
+  var opt = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
+  var delay = 800;
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    var res = UrlFetchApp.fetch(url, opt);
+    var code = res.getResponseCode();
+    if (code === 200) {
+      try { return JSON.parse(res.getContentText()); } catch (e) { return null; }
+    }
+    if ((code === 429 || code === 500 || code === 503) && attempt < 3) {
+      logEvent('WARN', 'gemini_vision_retry', 'HTTP ' + code + ' percobaan ' + attempt);
+      Utilities.sleep(delay); delay *= 2; continue;
+    }
+    logEvent('ERROR', 'gemini_vision_http', 'HTTP ' + code + ' ' + res.getContentText().slice(0, 300));
+    return null;
+  }
+  return null;
 }
 
 // ---------- Arsip foto ke Drive ----------
