@@ -97,7 +97,8 @@ function writeDashboardData(sh) {
   var prev = (b.m === 1) ? { y: b.y - 1, m: 12 } : { y: b.y, m: b.m - 1 };
   var d = scanKeuangan(b, prev);
 
-  sh.getRange('A2').setValue('   Ringkasan ' + MONTH_ID[b.m - 1] + ' ' + b.y);
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM HH:mm');
+  sh.getRange('A2').setValue('   Ringkasan ' + MONTH_ID[b.m - 1] + ' ' + b.y + '    ·    🕒 diperbarui ' + stamp);
 
   sh.getRange('A5').setValue(d.masuk);
   sh.getRange('C5').setValue(d.keluar);
