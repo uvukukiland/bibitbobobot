@@ -34,8 +34,58 @@ function polishSheets() {
       styleSheet(s, { widths: [90, 150, 90, 130, 130, 260, 110], money: [4], dates: [2], color: '#475569' });
     }
   });
+  applyConditionalFormats();
   SpreadsheetApp.flush();
   Logger.log('✅ Polish selesai untuk semua sheet data.');
+}
+
+/**
+ * Pewarnaan otomatis (conditional formatting) yang anti-locale (pakai kondisi bawaan,
+ * BUKAN rumus dgn pemisah argumen — hindari jebakan ; vs , di id_ID).
+ * - Keuangan: tipe keluar=merah / masuk=hijau; nominal ≥ 1 juta jadi tebal-merah.
+ * - Tugas: status done=abu / open=biru.
+ * - Arsip <tahun>: tipe keluar=merah / masuk=hijau.
+ * setConditionalFormatRules MENGGANTI semua aturan → idempoten.
+ */
+function applyConditionalFormats() {
+  var book = ss();
+
+  var keu = book.getSheetByName('Keuangan');
+  if (keu) {
+    var n = keu.getMaxRows() - 1;
+    var tipe = keu.getRange(2, 2, n, 1);     // kolom tipe
+    var nom = keu.getRange(2, 3, n, 1);      // kolom nominal
+    keu.setConditionalFormatRules([
+      SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(1000000)
+        .setBold(true).setFontColor('#B91C1C').setRanges([nom]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('keluar')
+        .setBackground('#FEE2E2').setFontColor('#B91C1C').setRanges([tipe]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('masuk')
+        .setBackground('#DCFCE7').setFontColor('#15803D').setRanges([tipe]).build()
+    ]);
+  }
+
+  var tug = book.getSheetByName('Tugas');
+  if (tug) {
+    var st = tug.getRange(2, 4, tug.getMaxRows() - 1, 1); // kolom status
+    tug.setConditionalFormatRules([
+      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('done')
+        .setBackground('#F1F5F9').setFontColor('#94A3B8').setRanges([st]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('open')
+        .setBackground('#DBEAFE').setFontColor('#1D4ED8').setRanges([st]).build()
+    ]);
+  }
+
+  book.getSheets().forEach(function (s) {
+    if (!/^Arsip \d{4}$/.test(s.getName())) return;
+    var t = s.getRange(2, 3, s.getMaxRows() - 1, 1); // kolom tipe di arsip
+    s.setConditionalFormatRules([
+      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('keluar')
+        .setBackground('#FEE2E2').setFontColor('#B91C1C').setRanges([t]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('masuk')
+        .setBackground('#DCFCE7').setFontColor('#15803D').setRanges([t]).build()
+    ]);
+  });
 }
 
 /** Terapkan gaya konsisten pada satu sheet. */

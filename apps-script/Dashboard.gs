@@ -60,6 +60,7 @@ function buildDashboard() {
     .setFontWeight('bold').setBackground('#F8FAFC');
   sh.getRange('B12:B24').setNumberFormat('"Rp"#,##0');
   sh.getRange('C12:C24').setNumberFormat('0.0%');
+  sh.getRange('A11:C24').setHorizontalAlignment('center').setVerticalAlignment('middle'); // rata tengah
 
   // --- Transaksi terakhir ---
   sh.getRange('A26:F26').merge().setValue('  Transaksi Terakhir')
@@ -70,6 +71,14 @@ function buildDashboard() {
     .setFontWeight('bold').setBackground('#F8FAFC');
   sh.getRange('A28:A35').setNumberFormat('dd/MM/yyyy HH:mm');
   sh.getRange('C28:C35').setNumberFormat('"Rp"#,##0');
+  sh.getRange('B28:B35').setHorizontalAlignment('center'); // kolom Tipe rata tengah
+
+  // Gradien warna pada kolom Total kategori: makin besar makin merah.
+  sh.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .setGradientMinpoint('#FFFFFF').setGradientMaxpoint('#FCA5A5')
+      .setRanges([sh.getRange('B12:B24')]).build()
+  ]);
 
   // Isi data sebelum membuat chart agar range grafik sudah berisi angka.
   writeDashboardData(sh);
@@ -81,6 +90,8 @@ function buildDashboard() {
     .setPosition(11, 5, 5, 0)
     .setOption('title', 'Komposisi Pengeluaran')
     .setOption('legend', { position: 'right' })
+    .setOption('pieSliceText', 'percentage')
+    .setOption('pieHole', 0.4)
     .setOption('width', 380)
     .setOption('height', 240)
     .build();
