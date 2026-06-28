@@ -199,9 +199,12 @@ function cmdSaldo(chatId) {
   var prev = (b.m === 1) ? { y: b.y - 1, m: 12 } : { y: b.y, m: b.m - 1 };
   var d = scanKeuangan(b, prev);
   sendMessage(chatId,
-    '💼 Saldo total: Rp' + formatRupiah(d.saldoTotal) +
-    '\n🟦 Saldo bulan ini: Rp' + formatRupiah(d.masuk - d.keluar) +
-    '\n   (+Rp' + formatRupiah(d.masuk) + ' / -Rp' + formatRupiah(d.keluar) + ')');
+    '👛 <b>Saldo</b>\n' +
+    '━━━━━━━━━━━━━━\n' +
+    '💼 Total: <b>Rp' + formatRupiah(d.saldoTotal) + '</b>\n' +
+    '🟦 Bulan ini: <b>Rp' + formatRupiah(d.masuk - d.keluar) + '</b>\n' +
+    '   💰 +Rp' + formatRupiah(d.masuk) + '  ·  💸 -Rp' + formatRupiah(d.keluar),
+    { html: true });
 }
 
 /** /catatan [kata] → 5 catatan terakhir, atau yang memuat kata kunci. */

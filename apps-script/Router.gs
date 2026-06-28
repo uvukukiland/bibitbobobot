@@ -15,7 +15,7 @@ function route(text, chatId) {
 
   switch (cmd) {
     case '/ping':   sendMessage(chatId, 'pong'); break;
-    case '/start':
+    case '/start':  sendMessage(chatId, welcomeText(), { html: true }); break;
     case '/help':   sendMessage(chatId, helpText()); break;
 
     // Fase 1 — capture
@@ -47,6 +47,24 @@ function route(text, chatId) {
     default:
       sendMessage(chatId, 'Perintah tidak dikenal. Kirim /help untuk daftar.');
   }
+}
+
+function welcomeText() {
+  return [
+    '👋 <b>Halo! Saya AI_din</b>, asisten pribadi Anda.',
+    '',
+    'Saya bantu catat <b>keuangan</b>, <b>tugas</b>, &amp; <b>agenda</b> — cukup ngobrol biasa, tanpa perlu hafal perintah.',
+    '',
+    'Coba ketik:',
+    '• "jajan kopi 25rb"  → catat pengeluaran',
+    '• "gaji masuk 5jt"  → pemasukan',
+    '• "ingatkan bayar listrik besok"  → tugas',
+    '• "rekap bulan ini"  → laporan',
+    '',
+    '📸 Atau kirim <b>FOTO</b> struk / transfer / resi — saya baca otomatis.',
+    '',
+    'Tekan tombol <b>Menu</b> (≡) di kiri bawah untuk semua perintah, atau ketik /help.'
+  ].join('\n');
 }
 
 function helpText() {

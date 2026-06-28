@@ -28,6 +28,7 @@ function photoFileId(msg) {
 
 /** Alur utama: unduh foto → baca Gemini → arsip Drive → konfirmasi. */
 function handlePhoto(msg, fileId, chatId) {
+  sendTyping(chatId);
   sendMessage(chatId, '🧾 Membaca foto…');
 
   var blob;
@@ -76,7 +77,8 @@ function handlePhoto(msg, fileId, chatId) {
 
   setPending(chatId, a);
   var label = { struk: '🧾 Struk', transfer: '🏦 Transfer', resi: '📦 Resi', catatan: '📝 Catatan' }[a.jenis] || '📸 Foto';
-  askConfirm(chatId, label + ' terbaca:\n' + confirmText(a) + (url ? '\n🗂️ Arsip: ' + url : ''));
+  askConfirm(chatId, label + ' <b>terbaca</b>:\n' + confirmText(a) +
+    (url ? '\n🗂️ <a href="' + htmlEsc(url) + '">Arsip foto</a>' : ''));
 }
 
 /** Model untuk membaca gambar (bisa beda dari model teks via GEMINI_VISION_MODEL, mis. gemini-2.5-pro). */

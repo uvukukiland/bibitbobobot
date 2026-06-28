@@ -233,24 +233,35 @@ function setPending(chatId, action) { CacheService.getScriptCache().put(pendingK
 function getPending(chatId) { var v = CacheService.getScriptCache().get(pendingKey(chatId)); return v ? JSON.parse(v) : null; }
 function clearPending(chatId) { CacheService.getScriptCache().remove(pendingKey(chatId)); }
 
-/** Teks ringkas untuk konfirmasi. */
+/** Kartu konfirmasi (HTML). Bagian dinamis di-escape; dikirim via askConfirm/sendMessage{html:true}. */
 function confirmText(a) {
+  var e = htmlEsc;
+  var rp = function (n) { return '<b>Rp' + formatRupiah(n) + '</b>'; };
   switch (a.intent) {
-    case 'keluar': return '💸 Pengeluaran Rp' + formatRupiah(a.nominal) + ' · ' + a.kategori + (a.keterangan ? ' · ' + a.keterangan : '') + tglInfo(a);
-    case 'masuk':  return '💰 Pemasukan Rp' + formatRupiah(a.nominal) + ' · ' + a.kategori + (a.keterangan ? ' · ' + a.keterangan : '') + tglInfo(a);
-    case 'tugas':  return '📋 Tugas: ' + a.teks + (a.jatuh_tempo ? ' (tenggat ' + a.jatuh_tempo + ')' : '');
-    case 'catat':  return '📝 Catatan: ' + a.teks;
-    case 'acara':  return '📅 Acara: ' + a.teks + ' — ' + a.tanggal + ' ' + (a.jam || '08:00');
+    case 'keluar': return '💸 <b>Pengeluaran</b>\n' + rp(a.nominal) + ' · ' + e(a.kategori) + (a.keterangan ? '\n📝 ' + e(a.keterangan) : '') + tglInfo(a);
+    case 'masuk':  return '💰 <b>Pemasukan</b>\n' + rp(a.nominal) + ' · ' + e(a.kategori) + (a.keterangan ? '\n📝 ' + e(a.keterangan) : '') + tglInfo(a);
+    case 'tugas':  return '📋 <b>Tugas</b>\n' + e(a.teks) + (a.jatuh_tempo ? '\n⏰ Tenggat ' + e(a.jatuh_tempo) : '');
+    case 'catat':  return '📝 <b>Catatan</b>\n' + e(a.teks);
+    case 'acara':  return '📅 <b>Acara</b>\n' + e(a.teks) + '\n🗓️ ' + e(a.tanggal) + ' ' + e(a.jam || '08:00');
     case 'hapus':
-      if (a.target === 'tugas') return '🗑️ Hapus tugas ' + (a.id || '?') + '?';
-      if (a.target === 'bulan') return '🗑️ Hapus SEMUA keuangan bulan ' + (a.bulan || '?') + '? (tidak bisa dibatalkan)';
-      return '🗑️ Hapus transaksi keuangan TERAKHIR?';
+      if (a.target === 'tugas') return '🗑️ Hapus tugas <b>' + e(a.id || '?') + '</b>?';
+      if (a.target === 'bulan') return '🗑️ Hapus <b>SEMUA</b> keuangan bulan <b>' + e(a.bulan || '?') + '</b>?\n<i>Tidak bisa dibatalkan.</i>';
+      return '🗑️ Hapus transaksi keuangan <b>TERAKHIR</b>?';
     case 'edit':
-      if (a.target === 'catatan') return '✏️ Ubah catatan terakhir jadi: ' + (a.nilai || '?');
-      if (a.target === 'tugas') return '✏️ Ubah tugas ' + (a.id || '?') + ' — ' + (a.field || '?') + ' → ' + (a.nilai || '?');
-      return '✏️ Ubah transaksi terakhir — ' + (a.field || '?') + ' → ' + (a.nilai || '?');
+      if (a.target === 'catatan') return '✏️ Ubah catatan terakhir jadi:\n' + e(a.nilai || '?');
+      if (a.target === 'tugas') return '✏️ Ubah tugas <b>' + e(a.id || '?') + '</b> — ' + e(a.field || '?') + ' → <b>' + e(a.nilai || '?') + '</b>';
+      return '✏️ Ubah transaksi terakhir — ' + e(a.field || '?') + ' → <b>' + e(a.nilai || '?') + '</b>';
     default:       return '';
   }
+}
+
+/** Tombol aksi cepat setelah mencatat transaksi. */
+function quickActions() {
+  return [[
+    { text: '📊 Rekap', callback_data: 'qa_rekap' },
+    { text: '👛 Saldo', callback_data: 'qa_saldo' },
+    { text: '↩️ Batalkan', callback_data: 'qa_undo' }
+  ]];
 }
 
 /** " · tgl 2026-06-19" bila aksi keuangan menyebut tanggal lampau yang valid. */
@@ -315,6 +326,7 @@ function handleNatural(text, chatId) {
   if (handleViewShortcut(text, chatId)) return;
 
   var a = null;
+  sendTyping(chatId); // beri tanda "sedang mengetik…" selama AI berpikir
   try { a = geminiParse(text); }
   catch (e) { logEvent('ERROR', 'gemini_call_threw', String(e)); sendMessage(chatId, '⚠️ AI sedang sibuk/limit. Coba lagi sebentar, atau pakai perintah /help.'); return; }
 
@@ -412,21 +424,24 @@ function cancelPending(chatId) {
   sendMessage(chatId, '❌ Dibatalkan.');
 }
 
-/** Prompt konfirmasi dengan tombol ✅/❌ (tetap bisa diketik /ya /tidak juga). */
+/** Prompt konfirmasi dengan tombol ✅/❌ (HTML; tetap bisa diketik /ya /tidak juga). */
 function askConfirm(chatId, bodyText) {
   sendButtons(chatId, bodyText, [[
     { text: '✅ Ya', callback_data: 'confirm' },
     { text: '❌ Tidak', callback_data: 'cancel' }
-  ]]);
+  ]], true);
 }
 
-/** Tangani tap tombol inline konfirmasi. */
+/** Tangani tap tombol inline: konfirmasi ✅/❌ & aksi cepat (rekap/saldo/batalkan). */
 function handleCallback(cq, chatId) {
   answerCallback(cq.id);
-  try { if (cq.message) clearButtons(chatId, cq.message.message_id); } catch (e) {}
   var data = String(cq.data || '');
-  if (data === 'confirm') confirmPending(chatId);
-  else if (data === 'cancel') cancelPending(chatId);
+  var clear = function () { try { if (cq.message) clearButtons(chatId, cq.message.message_id); } catch (e) {} };
+  if (data === 'confirm') { clear(); confirmPending(chatId); }
+  else if (data === 'cancel') { clear(); cancelPending(chatId); }
+  else if (data === 'qa_rekap') { cmdRekap([], chatId); }       // biarkan tombol agar bisa ditekan lagi
+  else if (data === 'qa_saldo') { cmdSaldo(chatId); }
+  else if (data === 'qa_undo') { clear(); hapusKeuanganTerakhir(chatId); }
 }
 
 /** View read-only via bahasa natural: saldo, catatan, agenda. Return true bila ditangani. */
@@ -487,7 +502,7 @@ function executeAction(a, chatId) {
       if (a.arsip) ket += (ket ? ' | ' : '') + a.arsip;
       append('Keuangan', [when, a.intent, a.nominal, kat, ket, a.sumber || 'bot-ai']);
       logEvent('INFO', 'ai_keuangan_added', a.intent + ' ' + a.nominal + ' ' + kat);
-      sendMessage(chatId, '✅ Tersimpan: ' + confirmText(a) + tanggalSuffix(when));
+      sendMessage(chatId, '✅ <b>Tersimpan</b>\n' + confirmText(a) + tanggalSuffix(when), { html: true, keyboard: quickActions() });
       refreshDashboard();
       break;
 

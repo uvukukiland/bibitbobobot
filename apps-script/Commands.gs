@@ -48,8 +48,11 @@ function cmdUang(tipe, args, chatId) {
   var keterangan = rest.slice(2).join(' ');
   append('Keuangan', [tanggal, tipe, nominal, kategori, keterangan, 'bot']);
   logEvent('INFO', 'keuangan_added', tipe + ' ' + nominal + ' ' + kategori);
-  sendMessage(chatId, '✅ Tercatat: ' + tipe + ' Rp' + formatRupiah(nominal) + ' · ' + kategori +
-    (keterangan ? ' · ' + keterangan : '') + tanggalSuffix(tanggal));
+  sendMessage(chatId,
+    '✅ <b>Tercatat</b>\n' + (tipe === 'keluar' ? '💸 Pengeluaran' : '💰 Pemasukan') +
+    '\n<b>Rp' + formatRupiah(nominal) + '</b> · ' + htmlEsc(kategori) +
+    (keterangan ? '\n📝 ' + htmlEsc(keterangan) : '') + tanggalSuffix(tanggal),
+    { html: true, keyboard: quickActions() });
   refreshDashboard();
 }
 
