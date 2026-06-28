@@ -8,7 +8,7 @@
 var PHOTO_SCHEMA = {
   type: 'object',
   properties: {
-    jenis: { type: 'string', enum: ['struk', 'transfer', 'catatan', 'unknown'] },
+    jenis: { type: 'string', enum: ['struk', 'transfer', 'resi', 'catatan', 'unknown'] },
     intent: { type: 'string', enum: ['keluar', 'masuk', 'catat', 'unknown'] },
     nominal: { type: 'integer' },
     kategori: { type: 'string' },
@@ -56,7 +56,10 @@ function handlePhoto(msg, fileId, chatId) {
   // Lengkapi & validasi agar tidak tampil "undefined".
   if (a.intent === 'keluar' || a.intent === 'masuk') {
     if (!a.nominal || a.nominal <= 0) {
-      sendMessage(chatId, '🤔 Nominal tidak terbaca jelas dari foto. Coba foto ulang atau ketik manual.');
+      var pesanNominal = (a.jenis === 'resi')
+        ? '🤔 Ongkir tidak tertera/terbaca di resi. Ketik manual, mis. "ongkir 12rb transport' + (a.keterangan ? ' ' + a.keterangan : '') + '".'
+        : '🤔 Nominal tidak terbaca jelas dari foto. Coba foto ulang atau ketik manual.';
+      sendMessage(chatId, pesanNominal);
       return;
     }
     a.kategori = normalisasiKategori(a.kategori, a.intent, (a.keterangan || '') + ' ' + (msg.caption || ''));
@@ -67,7 +70,7 @@ function handlePhoto(msg, fileId, chatId) {
   }
 
   setPending(chatId, a);
-  var label = { struk: '🧾 Struk', transfer: '🏦 Transfer', catatan: '📝 Catatan' }[a.jenis] || '📸 Foto';
+  var label = { struk: '🧾 Struk', transfer: '🏦 Transfer', resi: '📦 Resi', catatan: '📝 Catatan' }[a.jenis] || '📸 Foto';
   askConfirm(chatId, label + ' terbaca:\n' + confirmText(a) + (url ? '\n🗂️ Arsip: ' + url : ''));
 }
 
@@ -83,6 +86,7 @@ function geminiVision(blob, hint) {
     'Tentukan jenis gambar, lalu ubah jadi SATU aksi terstruktur sesuai skema.',
     'jenis "struk" (struk/nota belanja): intent "keluar"; nominal = TOTAL akhir yang DIBAYAR (bukan subtotal, bukan kembalian, bukan pajak terpisah); keterangan = nama toko; tanggal dari struk bila ada.',
     'jenis "transfer" (bukti transfer / mutasi m-banking / e-wallet): jika uang DITERIMA pengguna -> intent "masuk"; jika uang KELUAR/dibayar -> intent "keluar"; nominal = jumlah transaksi; keterangan = tujuan/sumber bila terbaca.',
+    'jenis "resi" (resi/struk pengiriman paket kurir: JNE, J&T, SiCepat, AnterAja, Pos, Ninja, Lion Parcel, dll): intent "keluar"; kategori "transport"; nominal = BIAYA KIRIM / ONGKIR yang dibayar (cari label "Ongkir", "Biaya Kirim", "Total Bayar", "Cost"); JIKA ongkir tidak tertera angkanya, set nominal 0. keterangan = "Ongkir <nama kurir> <nomor resi>" (nomor resi = kode pelacakan alfanumerik panjang; salin sepersis mungkin, sertakan walau ragu).',
     'jenis "catatan" (tulisan tangan / memo): intent "catat"; teks = transkripsi isi tulisan.',
     'kategori: WAJIB pilih yang PALING cocok dari daftar. HINDARI "lainnya" (lihat PEMETAAN di bawah); pakai hanya bila benar-benar tak ada yang cocok. JANGAN dikosongkan. Daftar — ' + kategoriListText() + '.',
     kategoriHintText(),

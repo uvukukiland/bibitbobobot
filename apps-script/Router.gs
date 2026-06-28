@@ -76,8 +76,9 @@ function helpText() {
     '· "tugas T-0001 sudah selesai"',
     '· "hapus transaksi terakhir"',
     '',
-    '📸 Kirim FOTO struk / bukti transfer / catatan tulisan tangan',
+    '📸 Kirim FOTO struk / bukti transfer / resi paket / catatan tulisan tangan',
     '   → bot baca otomatis & arsipkan ke Drive.',
+    '   (resi → ongkir dicatat sbg pengeluaran transport)',
     'Untuk simpan/hapus/ubah, bot minta konfirmasi → tap tombol ✅/❌ (atau ketik /ya /tidak).'
   ].join('\n');
 }
