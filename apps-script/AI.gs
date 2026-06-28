@@ -206,6 +206,59 @@ function geminiParse(text) {
   }
 }
 
+// ---------- Mode obrolan AI (tanya-jawab bebas) ----------
+
+/** Kunci & ambil/simpan riwayat obrolan ringan (4 giliran terakhir, 30 menit). */
+function chatKey(chatId) { return 'chat_' + chatId; }
+function chatHistoryGet(chatId) {
+  var v = CacheService.getScriptCache().get(chatKey(chatId));
+  try { return v ? JSON.parse(v) : []; } catch (e) { return []; }
+}
+function chatHistorySave(chatId, userText, modelText) {
+  var h = chatHistoryGet(chatId);
+  h.push({ role: 'user', parts: [{ text: userText }] });
+  h.push({ role: 'model', parts: [{ text: modelText }] });
+  if (h.length > 8) h = h.slice(h.length - 8);
+  CacheService.getScriptCache().put(chatKey(chatId), JSON.stringify(h), 1800);
+}
+
+/**
+ * Obrolan AI umum (bukan perintah): jawab pertanyaan / minta saran / ngobrol.
+ * Mengingat 4 giliran terakhir agar nyambung. Kembalikan teks jawaban atau null.
+ */
+function geminiChat(text, chatId) {
+  var apiKey = cfg('GEMINI_API_KEY');
+  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+
+  var sys = [
+    'Kamu "AI_din", asisten pribadi yang ramah, cerdas, dan membantu. Selalu berbahasa Indonesia.',
+    'Jawab ringkas, jelas, dan enak dibaca di chat Telegram (hindari jawaban bertele-tele; pakai poin "•" bila perlu).',
+    'Selain mengobrol, kamu punya fitur: mencatat keuangan, tugas, agenda, dan membaca foto struk. Bila pengguna tampak ingin mencatat, arahkan singkat caranya (mis. ketik "kopi 25rb" atau kirim foto struk).',
+    'Jangan mengarang; bila tidak tahu, katakan jujur.',
+    'PENTING: balas dalam TEKS POLOS. Jangan pakai Markdown/HTML (tanpa **, ##, _, atau tag) karena akan tampil mentah.'
+  ].join('\n');
+
+  var contents = chatHistoryGet(chatId).concat([{ role: 'user', parts: [{ text: text }] }]);
+  var payload = {
+    systemInstruction: { parts: [{ text: sys }] },
+    contents: contents,
+    generationConfig: { temperature: 0.6, maxOutputTokens: 800 }
+  };
+
+  var res = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true });
+  var body; try { body = JSON.parse(res.getContentText()); } catch (e) { body = null; }
+  if (!body || !body.candidates || !body.candidates[0]) {
+    logEvent('ERROR', 'gemini_chat_failed', String(res.getResponseCode()) + ' ' + res.getContentText().slice(0, 300));
+    return null;
+  }
+  var ans = '';
+  try { ans = body.candidates[0].content.parts[0].text; } catch (e) { return null; }
+  ans = String(ans || '').trim();
+  if (ans) chatHistorySave(chatId, text, ans);
+  return ans || null;
+}
+
 // ---------- Penyimpanan aksi tertunda (menunggu konfirmasi) ----------
 
 /** Bersihkan partikel akhiran ("dong/deh/lah/aja/sih/nih/kok/ya") & tanda baca. */
@@ -334,13 +387,16 @@ function handleNatural(text, chatId) {
     // Pola singkat "<kategori> <nominal>" (mis. "rumah 2.502.500") -> pengeluaran.
     var fb = tebakAksiKeuangan(text);
     if (fb) { setPending(chatId, fb); askConfirm(chatId, confirmText(fb)); return; }
+    // Bukan pola keuangan/tugas → layani sebagai obrolan AI biasa.
+    sendTyping(chatId);
+    var jawab = geminiChat(text, chatId);
+    if (jawab) { sendMessage(chatId, jawab); return; }
     sendMessage(chatId, [
-      '🤔 Belum paham maksudnya. Contoh yang bisa saya proses:',
+      '🤔 Maaf, AI sedang sibuk. Contoh yang bisa saya proses:',
       '• "jajan kopi 25rb"  (catat pengeluaran)',
       '• "gaji masuk 5jt"  (pemasukan)',
       '• "ingatkan bayar listrik besok"  (tugas)',
       '• "rekap bulan ini" · "lihat tugas"',
-      '• "hapus tugas T-0001" · "selesaikan T-0001"',
       'Atau ketik /help untuk daftar perintah.'
     ].join('\n'));
     return;
@@ -465,8 +521,8 @@ function cmdKategori(args, chatId) {
     for (var i = 1; i < rows.length; i++) { if (String(rows[i][0]).toLowerCase() === arg) { ada = true; break; } }
     if (!ada) { sendMessage(chatId, '❌ Kategori "' + arg + '" tidak ada. Ketik /kategori untuk daftar.'); return; }
     var kws = (typeof KATEGORI_KEYWORDS !== 'undefined' && KATEGORI_KEYWORDS[arg]) ? KATEGORI_KEYWORDS[arg] : [];
-    if (kws.length) sendMessage(chatId, '🏷️ Contoh kata kunci "' + arg + '":\n' + kws.slice(0, 40).join(', ') + (kws.length > 40 ? ', dll' : ''));
-    else sendMessage(chatId, '🏷️ Kategori "' + arg + '" ada (belum punya kata kunci otomatis). Sebut namanya langsung saat mencatat, mis. "' + arg + ' 50rb".');
+    if (kws.length) sendMessage(chatId, '🏷️ <b>Contoh kata kunci "' + htmlEsc(arg) + '"</b>\n' + htmlEsc(kws.slice(0, 40).join(', ')) + (kws.length > 40 ? ', dll' : ''), { html: true });
+    else sendMessage(chatId, '🏷️ Kategori "' + htmlEsc(arg) + '" ada (belum punya kata kunci otomatis). Sebut namanya langsung saat mencatat, mis. "' + htmlEsc(arg) + ' 50rb".', { html: true });
     return;
   }
 
@@ -478,12 +534,12 @@ function cmdKategori(args, chatId) {
     else if (t === 'both') both.push(nama);
     else keluar.push(nama);
   }
-  var out = ['🏷️ Daftar Kategori', '',
-    '💸 Pengeluaran (' + keluar.length + '):', keluar.join(', ') || '-',
-    '', '💰 Pemasukan (' + masuk.length + '):', masuk.join(', ') || '-'];
-  if (both.length) out.push('', '↔️ Keduanya: ' + both.join(', '));
-  out.push('', 'Ketik /kategori <nama> untuk contoh kata kunci (mis. /kategori rumah).');
-  sendMessage(chatId, out.join('\n'));
+  var out = ['🏷️ <b>Daftar Kategori</b>', '━━━━━━━━━━━━━━',
+    '💸 <b>Pengeluaran (' + keluar.length + ')</b>', htmlEsc(keluar.join(', ')) || '-',
+    '', '💰 <b>Pemasukan (' + masuk.length + ')</b>', htmlEsc(masuk.join(', ')) || '-'];
+  if (both.length) out.push('', '↔️ <b>Keduanya</b>: ' + htmlEsc(both.join(', ')));
+  out.push('━━━━━━━━━━━━━━', '<i>Ketik /kategori &lt;nama&gt; untuk contoh kata kunci (mis. /kategori rumah).</i>');
+  sendMessage(chatId, out.join('\n'), { html: true });
 }
 
 /** Tulis aksi ke sheet setelah dikonfirmasi. Tetap validasi (jaga data bersih). */

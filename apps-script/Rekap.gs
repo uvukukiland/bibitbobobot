@@ -146,23 +146,24 @@ function cmdRekap(args, chatId) {
     }
   }
 
-  if (nTx === 0) { sendMessage(chatId, '📊 Rekap ' + labelBulan(b) + '\nBelum ada transaksi di bulan ini.'); return; }
+  if (nTx === 0) { sendMessage(chatId, '📊 <b>Rekap ' + htmlEsc(labelBulan(b)) + '</b>\nBelum ada transaksi di bulan ini.', { html: true }); return; }
 
   var top = Object.keys(perKat).map(function (k) { return [k, perKat[k]]; })
     .sort(function (a, c) { return c[1] - a[1]; }).slice(0, 5);
   var lines = [
-    '📊 Rekap ' + labelBulan(b), '',
-    '💰 Pemasukan : Rp' + formatRupiah(masuk),
-    '💸 Pengeluaran: Rp' + formatRupiah(keluar),
-    '🟦 Saldo bulan: Rp' + formatRupiah(masuk - keluar),
-    '(' + nTx + ' transaksi)'
+    '📊 <b>Rekap ' + htmlEsc(labelBulan(b)) + '</b>',
+    '━━━━━━━━━━━━━━',
+    '💰 Pemasukan  : <b>Rp' + formatRupiah(masuk) + '</b>',
+    '💸 Pengeluaran: <b>Rp' + formatRupiah(keluar) + '</b>',
+    '🟦 Saldo bulan: <b>Rp' + formatRupiah(masuk - keluar) + '</b>',
+    '<i>' + nTx + ' transaksi</i>'
   ];
   if (top.length) {
-    lines.push('', 'Pengeluaran teratas:');
-    top.forEach(function (t, i) { lines.push((i + 1) + '. ' + t[0] + ' — Rp' + formatRupiah(t[1])); });
+    lines.push('', '<b>🏆 Pengeluaran teratas</b>');
+    top.forEach(function (t, i) { lines.push((i + 1) + '. ' + htmlEsc(t[0]) + ' — <b>Rp' + formatRupiah(t[1]) + '</b>'); });
   }
-  lines.push('', '💼 Saldo total (semua waktu): Rp' + formatRupiah(saldoSemua()));
-  sendMessage(chatId, lines.join('\n'));
+  lines.push('━━━━━━━━━━━━━━', '💼 Saldo total: <b>Rp' + formatRupiah(saldoSemua()) + '</b>');
+  sendMessage(chatId, lines.join('\n'), { html: true });
 }
 
 /** Ringkasan satu tahun: per bulan + total. Baca Keuangan + Arsip-tahun. */
@@ -178,18 +179,18 @@ function cmdRekapTahun(year, chatId) {
     if (tipe === 'masuk') { perBulan[m][0] += nom; totMasuk += nom; }
     else if (tipe === 'keluar') { perBulan[m][1] += nom; totKeluar += nom; }
   }
-  if (nTx === 0) { sendMessage(chatId, '📅 Rekap ' + year + '\nBelum ada transaksi di tahun itu.'); return; }
+  if (nTx === 0) { sendMessage(chatId, '📅 <b>Rekap ' + year + '</b>\nBelum ada transaksi di tahun itu.', { html: true }); return; }
 
-  var lines = ['📅 Rekap Tahun ' + year + ' (' + nTx + ' transaksi)', ''];
+  var lines = ['📅 <b>Rekap Tahun ' + year + '</b>', '<i>' + nTx + ' transaksi</i>', '━━━━━━━━━━━━━━'];
   for (var mo = 1; mo <= 12; mo++) {
     if (!perBulan[mo]) continue;
-    lines.push('• ' + MONTH_ID[mo - 1] + ': +Rp' + formatRupiah(perBulan[mo][0]) + ' / -Rp' + formatRupiah(perBulan[mo][1]));
+    lines.push('<b>' + MONTH_ID[mo - 1] + '</b>  💰+Rp' + formatRupiah(perBulan[mo][0]) + '  💸-Rp' + formatRupiah(perBulan[mo][1]));
   }
-  lines.push('',
-    '💰 Total masuk : Rp' + formatRupiah(totMasuk),
-    '💸 Total keluar: Rp' + formatRupiah(totKeluar),
-    '🟦 Selisih     : Rp' + formatRupiah(totMasuk - totKeluar));
-  sendMessage(chatId, lines.join('\n'));
+  lines.push('━━━━━━━━━━━━━━',
+    '💰 Total masuk : <b>Rp' + formatRupiah(totMasuk) + '</b>',
+    '💸 Total keluar: <b>Rp' + formatRupiah(totKeluar) + '</b>',
+    '🟦 Selisih     : <b>Rp' + formatRupiah(totMasuk - totKeluar) + '</b>');
+  sendMessage(chatId, lines.join('\n'), { html: true });
 }
 
 /** /saldo → saldo total semua waktu + saldo bulan berjalan. */
@@ -218,15 +219,15 @@ function cmdCatatan(args, chatId) {
     if (q && teks.toLowerCase().indexOf(q) === -1) continue;
     items.push({ t: rows[i][0], teks: teks });
   }
-  if (!items.length) { sendMessage(chatId, q ? 'Tidak ada catatan memuat "' + q + '".' : 'Belum ada catatan.'); return; }
+  if (!items.length) { sendMessage(chatId, q ? 'Tidak ada catatan memuat "' + htmlEsc(q) + '".' : 'Belum ada catatan.', { html: true }); return; }
   var last = items.slice(-5).reverse();
-  var out = [q ? '🔎 Catatan memuat "' + q + '":' : '📝 Catatan terakhir:'];
+  var out = [q ? '🔎 <b>Catatan memuat "' + htmlEsc(q) + '"</b>' : '🗒️ <b>Catatan terakhir</b>', '━━━━━━━━━━━━━━'];
   last.forEach(function (c) {
     var tgl = (c.t instanceof Date) ? Utilities.formatDate(c.t, tz, 'dd/MM HH:mm') : String(c.t);
-    out.push('• [' + tgl + '] ' + c.teks);
+    out.push('• <i>' + htmlEsc(tgl) + '</i>  ' + htmlEsc(c.teks));
   });
-  if (!q && items.length > 5) out.push('(5 terbaru dari ' + items.length + ' catatan)');
-  sendMessage(chatId, out.join('\n'));
+  if (!q && items.length > 5) out.push('', '<i>5 terbaru dari ' + items.length + ' catatan</i>');
+  sendMessage(chatId, out.join('\n'), { html: true });
 }
 
 /** /agenda → acara mendatang (tanggal ≥ hari ini) + jadwal rutin. */
@@ -243,33 +244,34 @@ function cmdAgenda(chatId) {
     else rutin.push({ hari: String(rows[i][3]), jam: jam, label: rows[i][1] });
   }
   acara.sort(function (a, b) { return (a.tgl + a.jam) < (b.tgl + b.jam) ? -1 : 1; });
-  var out = ['📅 Agenda'];
-  if (acara.length) { out.push('', 'Acara mendatang:'); acara.forEach(function (a) { out.push('• ' + a.tgl + ' ' + a.jam + ' — ' + a.label + ' (' + a.id + ')'); }); }
-  if (rutin.length) { out.push('', 'Rutin:'); rutin.forEach(function (r) { out.push('• ' + r.hari + ' ' + r.jam + ' — ' + r.label); }); }
-  if (!acara.length && !rutin.length) out.push('', 'Belum ada jadwal/acara aktif.');
-  sendMessage(chatId, out.join('\n'));
+  var out = ['🗓️ <b>Agenda</b>'];
+  if (acara.length) { out.push('━━━━━━━━━━━━━━', '<b>Acara mendatang</b>'); acara.forEach(function (a) { out.push('• <b>' + htmlEsc(a.tgl) + '</b> ' + htmlEsc(a.jam) + ' — ' + htmlEsc(a.label) + ' <i>(' + htmlEsc(a.id) + ')</i>'); }); }
+  if (rutin.length) { out.push('━━━━━━━━━━━━━━', '<b>Rutin</b>'); rutin.forEach(function (r) { out.push('• ' + htmlEsc(r.hari) + ' ' + htmlEsc(r.jam) + ' — ' + htmlEsc(r.label)); }); }
+  if (!acara.length && !rutin.length) out.push('', '<i>Belum ada jadwal/acara aktif.</i>');
+  sendMessage(chatId, out.join('\n'), { html: true });
 }
 
 /** /status → cek kesehatan: properti, trigger, webhook. */
 function cmdStatus(chatId) {
-  var out = ['🩺 Status sistem', ''];
+  var out = ['🩺 <b>Status Sistem</b>', '━━━━━━━━━━━━━━', '<b>Konfigurasi</b>'];
   ['TELEGRAM_BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SPREADSHEET_ID', 'GEMINI_API_KEY'].forEach(function (k) {
     out.push((cfgOptional(k, '') ? '✅' : '❌') + ' ' + k);
   });
-  out.push('');
+  out.push('', '<b>Trigger</b>');
   var trigs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
   ['reminderTick', 'resetJadwalHarian', 'sendRingkasanHarian', 'refreshDashboard'].forEach(function (fn) {
-    out.push((trigs.indexOf(fn) >= 0 ? '✅' : '⬜') + ' trigger ' + fn);
+    out.push((trigs.indexOf(fn) >= 0 ? '✅' : '⬜') + ' ' + fn);
   });
   try {
     var info = tgCall('getWebhookInfo', {});
     if (info && info.result) {
-      out.push('', '🔗 webhook: ' + (info.result.url || '(kosong)'));
+      out.push('', '<b>Webhook</b>');
+      out.push('🔗 ' + htmlEsc(info.result.url || '(kosong)'));
       out.push('📥 pending: ' + (info.result.pending_update_count || 0));
-      if (info.result.last_error_message) out.push('⚠️ ' + info.result.last_error_message);
+      if (info.result.last_error_message) out.push('⚠️ ' + htmlEsc(info.result.last_error_message));
     }
   } catch (e) { out.push('', '⚠️ gagal cek webhook'); }
-  sendMessage(chatId, out.join('\n'));
+  sendMessage(chatId, out.join('\n'), { html: true, preview: false });
 }
 
 /**
@@ -288,7 +290,7 @@ function cmdDaftar(args, chatId) {
     if (due) {
       dueStr = (due instanceof Date) ? Utilities.formatDate(due, tz, 'dd/MM/yyyy') : String(due);
     }
-    var line = id + ' — ' + teks + (dueStr ? ' (tenggat ' + dueStr + ')' : '');
+    var line = '<b>' + htmlEsc(id) + '</b> — ' + htmlEsc(teks) + (dueStr ? ' <i>(tenggat ' + htmlEsc(dueStr) + ')</i>' : '');
     if (status === 'done') done.push('✔️ ' + line);
     else open.push('• ' + line);
   }
@@ -298,10 +300,10 @@ function cmdDaftar(args, chatId) {
     return;
   }
 
-  var out = ['📋 Tugas belum selesai (' + open.length + '):'].concat(open.length ? open : ['(kosong)']);
-  if (ikutSelesai && done.length) out = out.concat(['', 'Sudah selesai (' + done.length + '):']).concat(done);
-  else if (!ikutSelesai) out.push('', 'Ketik /daftar semua untuk lihat yang sudah selesai.');
-  sendMessage(chatId, out.join('\n'));
+  var out = ['📋 <b>Tugas belum selesai (' + open.length + ')</b>', '━━━━━━━━━━━━━━'].concat(open.length ? open : ['<i>(kosong)</i>']);
+  if (ikutSelesai && done.length) out = out.concat(['', '<b>Sudah selesai (' + done.length + ')</b>']).concat(done);
+  else if (!ikutSelesai) out.push('', '<i>Ketik /daftar semua untuk lihat yang sudah selesai.</i>');
+  sendMessage(chatId, out.join('\n'), { html: true });
 }
 
 /** Normalkan nama field agar fleksibel (sinonim → kanonik). */

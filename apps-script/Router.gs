@@ -16,7 +16,7 @@ function route(text, chatId) {
   switch (cmd) {
     case '/ping':   sendMessage(chatId, 'pong'); break;
     case '/start':  sendMessage(chatId, welcomeText(), { html: true }); break;
-    case '/help':   sendMessage(chatId, helpText()); break;
+    case '/help':   sendMessage(chatId, helpText(), { html: true }); break;
 
     // Fase 1 — capture
     case '/keluar': cmdUang('keluar', args, chatId); break;
@@ -60,6 +60,7 @@ function welcomeText() {
     '• "gaji masuk 5jt"  → pemasukan',
     '• "ingatkan bayar listrik besok"  → tugas',
     '• "rekap bulan ini"  → laporan',
+    '• "tips hemat belanja bulanan"  → 💬 tanya/ngobrol AI',
     '',
     '📸 Atau kirim <b>FOTO</b> struk / transfer / resi — saya baca otomatis.',
     '',
@@ -69,34 +70,36 @@ function welcomeText() {
 
 function helpText() {
   return [
-    'Asisten Pribadi — perintah:',
-    '/keluar <nominal> <kategori> [ket] [#tgl]',
-    '/masuk <nominal> <kategori> [ket] [#tgl]',
-    '/tugas <teks> [#YYYY-MM-DD]',
-    '/acara <label> #YYYY-MM-DD [HH:MM] (agenda sekali)',
-    '/daftar [semua] (lihat tugas)',
-    '/selesai <id-tugas>',
-    '/catat <teks>  ·  /catatan [kata] (lihat)',
-    '/agenda (acara mendatang)  ·  /saldo',
-    '/kategori [nama] (daftar kategori)',
-    '/cari <kata> (Drive)  ·  /dropbox <kata>',
-    '/rekap [YYYY-MM | YYYY] (bulan/tahun)  ·  /status',
-    '/edit terakhir|tugas <id>|catatan … (perbaiki)',
-    '/hapus terakhir | tugas <id> | bulan YYYY-MM',
-    '/ping',
+    '📖 <b>Panduan AI_din</b>',
+    '━━━━━━━━━━━━━━',
+    '💬 <b>Ngobrol bebas</b>',
+    'Tanya apa saja / minta saran — saya jawab seperti asisten AI.',
+    'Mis. "tips hemat belanja bulanan".',
     '',
-    'Backfill tanggal: #kemarin, #2harilalu, #YYYY-MM-DD',
+    '💸 <b>Keuangan</b>',
+    '• "kopi 25rb"  atau  /keluar [nominal] [kategori] [ket]',
+    '• "gaji masuk 5jt"  atau  /masuk [nominal] [kategori]',
+    '• /saldo  ·  /rekap [YYYY-MM | YYYY]  ·  /kategori [nama]',
     '',
-    'Atau ketik bebas (AI), tanpa garis miring:',
-    '· "tadi jajan kopi 25rb"',
-    '· "rekap keuangan bulan ini"',
-    '· "rapat tim 30 juni jam 2 siang" (acara)',
-    '· "tugas T-0001 sudah selesai"',
-    '· "hapus transaksi terakhir"',
+    '✅ <b>Tugas &amp; Agenda</b>',
+    '• /tugas [teks] [#YYYY-MM-DD]  ·  /daftar [semua]',
+    '• /selesai [id]  ·  /agenda',
+    '• /acara [label] #YYYY-MM-DD [HH:MM]',
     '',
-    '📸 Kirim FOTO struk / bukti transfer / resi paket / catatan tulisan tangan',
-    '   → bot baca otomatis & arsipkan ke Drive.',
-    '   (resi → ongkir dicatat sbg pengeluaran transport)',
-    'Untuk simpan/hapus/ubah, bot minta konfirmasi → tap tombol ✅/❌ (atau ketik /ya /tidak).'
+    '🗒️ <b>Catatan &amp; Berkas</b>',
+    '• /catat [teks]  ·  /catatan [kata]',
+    '• /cari [kata] (Drive)  ·  /dropbox [kata]',
+    '',
+    '✏️ <b>Perbaiki / Hapus</b>',
+    '• /edit terakhir | tugas [id] | catatan …',
+    '• /hapus terakhir | tugas [id] | bulan YYYY-MM',
+    '',
+    '📸 <b>Foto</b>',
+    'Kirim foto struk / transfer / resi / tulisan tangan — saya baca otomatis &amp; arsipkan.',
+    '',
+    '🗓️ Backfill tanggal: #kemarin, #2harilalu, #YYYY-MM-DD',
+    '⚙️ /status   ·   ❓ /help',
+    '',
+    '<i>Untuk simpan/hapus/ubah, bot minta konfirmasi → tap ✅/❌.</i>'
   ].join('\n');
 }

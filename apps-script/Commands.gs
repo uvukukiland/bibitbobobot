@@ -148,7 +148,7 @@ function cmdCari(args, chatId) {
 
   var tz = Session.getScriptTimeZone();
   var lines = files.map(function (f, i) {
-    return (i + 1) + '. ' + f.name + ' (' + Utilities.formatDate(f.updated, tz, 'dd/MM/yyyy') + ')\n' + f.url;
+    return (i + 1) + '. <a href="' + htmlEsc(f.url) + '">' + htmlEsc(f.name) + '</a> <i>(' + Utilities.formatDate(f.updated, tz, 'dd/MM/yyyy') + ')</i>';
   });
-  sendMessage(chatId, '🔎 Hasil "' + query + '":\n\n' + lines.join('\n\n'));
+  sendMessage(chatId, '🔎 <b>Hasil "' + htmlEsc(query) + '"</b>\n━━━━━━━━━━━━━━\n' + lines.join('\n'), { html: true, preview: false });
 }

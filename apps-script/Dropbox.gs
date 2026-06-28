@@ -82,14 +82,15 @@ function cmdCariDropbox(args, chatId) {
       '\n\nCek DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN & scope app.');
     return;
   }
-  if (!files.length) { sendMessage(chatId, 'Tidak ada berkas Dropbox yang namanya memuat "' + query + '".'); return; }
+  if (!files.length) { sendMessage(chatId, 'Tidak ada berkas Dropbox yang namanya memuat "' + htmlEsc(query) + '".', { html: true }); return; }
 
   var lines = files.map(function (f, i) {
     var url = '';
     try { url = dropboxLink(f.path); } catch (e) {}
-    return (i + 1) + '. ' + f.name + (url ? '\n' + url : '\n(' + f.path + ')');
+    var nama = htmlEsc(f.name);
+    return (i + 1) + '. ' + (url ? '<a href="' + htmlEsc(url) + '">' + nama + '</a>' : nama + ' <i>(' + htmlEsc(f.path) + ')</i>');
   });
-  sendMessage(chatId, '📦 Dropbox "' + query + '":\n\n' + lines.join('\n\n'));
+  sendMessage(chatId, '📦 <b>Dropbox "' + htmlEsc(query) + '"</b>\n━━━━━━━━━━━━━━\n' + lines.join('\n'), { html: true, preview: false });
 }
 
 /**
