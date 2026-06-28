@@ -84,14 +84,15 @@ function geminiVision(blob, hint) {
   var sys = [
     'Kamu membaca GAMBAR untuk asisten keuangan & catatan pribadi berbahasa Indonesia.',
     'Tentukan jenis gambar, lalu ubah jadi SATU aksi terstruktur sesuai skema.',
-    'jenis "struk" (struk/nota belanja): intent "keluar"; nominal = TOTAL akhir yang DIBAYAR (bukan subtotal, bukan kembalian, bukan pajak terpisah); keterangan = nama toko; tanggal dari struk bila ada.',
+    'jenis "struk" (struk/nota belanja): intent "keluar"; nominal = TOTAL akhir yang DIBAYAR. Cari label seperti "TOTAL", "GRAND TOTAL", "BAYARAN", "BAYAR", "TUNAI", "DEBIT", "T-MDR", "TOTAL BAYAR" — biasanya angka TERBESAR & PALING BAWAH; JANGAN ambil subtotal, kembalian, diskon, atau PPN terpisah. keterangan = nama toko/merchant. tanggal dari struk bila ada.',
     'jenis "transfer" (bukti transfer / mutasi m-banking / e-wallet): jika uang DITERIMA pengguna -> intent "masuk"; jika uang KELUAR/dibayar -> intent "keluar"; nominal = jumlah transaksi; keterangan = tujuan/sumber bila terbaca.',
     'jenis "resi" (resi/struk pengiriman paket kurir: JNE, J&T, SiCepat, AnterAja, Pos, Ninja, Lion Parcel, dll): intent "keluar"; kategori "transport"; nominal = BIAYA KIRIM / ONGKIR yang dibayar (cari label "Ongkir", "Biaya Kirim", "Total Bayar", "Cost"); JIKA ongkir tidak tertera angkanya, set nominal 0. keterangan = "Ongkir <nama kurir> <nomor resi>" (nomor resi = kode pelacakan alfanumerik panjang; salin sepersis mungkin, sertakan walau ragu).',
     'jenis "catatan" (tulisan tangan / memo): intent "catat"; teks = transkripsi isi tulisan.',
     'kategori: WAJIB pilih yang PALING cocok dari daftar. HINDARI "lainnya" (lihat PEMETAAN di bawah); pakai hanya bila benar-benar tak ada yang cocok. JANGAN dikosongkan. Daftar — ' + kategoriListText() + '.',
     kategoriHintText(),
     'nominal = angka bulat tanpa titik/koma (mis. 87500). tanggal = YYYY-MM-DD (hari ini = ' + today + ').',
-    'Bila gambar buram / bukan ketiga jenis itu -> jenis "unknown", intent "unknown".'
+    'PENTING: JANGAN mudah menyerah. Gambar boleh gelap/miring/terpotong sebagian — selama ada angka total/jumlah yang bisa dibaca, TETAP ekstrak. Tebak nama toko dari teks yang terbaca walau tidak sempurna.',
+    'Pakai "unknown" HANYA bila benar-benar TIDAK ADA angka nominal yang terbaca sama sekali, atau gambar jelas bukan struk/transfer/resi/catatan (mis. foto pemandangan/orang).'
   ].join('\n');
 
   var parts = [
