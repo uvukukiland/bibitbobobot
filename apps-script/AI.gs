@@ -500,14 +500,30 @@ function handleCallback(cq, chatId) {
   else if (data === 'qa_undo') { clear(); hapusKeuanganTerakhir(chatId); }
 }
 
-/** View read-only via bahasa natural: saldo, catatan, agenda. Return true bila ditangani. */
+/** View read-only via bahasa natural: saldo, catatan (+cari), agenda/jadwal, kategori. */
 function handleViewShortcut(text, chatId) {
   var low = ' ' + text.toLowerCase() + ' ';
-  var lihat = /\b(lihat|liat|cek|tampilin|tampilkan|daftar|list|show|berapa|ada|apa)\b/.test(low);
+  var lihat = /\b(lihat|liat|cek|tampilin|tampilkan|tunjukin|tunjukkan|daftar|list|show|berapa|ada|apa|mana|cari|cariin)\b/.test(low);
+  var bare = bersihPartikel(text); // teks inti tanpa partikel/tanda baca akhir (mis. "catatan?" -> "catatan")
+
+  // SALDO — konservatif agar tak bentrok dgn "uang masuk ...".
   if (/\bsaldo\b/.test(low) || /\b(uang|duit)ku\b/.test(low)) { cmdSaldo(chatId); return true; }
-  if (/\b(catatan|notes?)\b/.test(low) && lihat) { cmdCatatan([], chatId); return true; }
-  if (/\b(agenda|jadwal|acara)\b/.test(low) && lihat) { cmdAgenda(chatId); return true; }
+
+  // KATEGORI.
   if (/\bkategori\b/.test(low)) { cmdKategori([], chatId); return true; }
+
+  // CATATAN — bare "catatan", atau "lihat/cari catatan [kata]" (kata = pencarian).
+  if (/\b(catatan|catetan|notes?)\b/.test(low) && (lihat || /^(catatan|catetan|notes?)$/.test(bare))) {
+    var q = String(text).toLowerCase()
+      .replace(/\b(lihat|liat|cek|tampilin|tampilkan|tunjukin|tunjukkan|daftar|list|show|ada|apa|mana|cari|cariin|semua|catatan|catetan|notes?)\b/g, ' ')
+      .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    cmdCatatan(q ? [q] : [], chatId); return true;
+  }
+
+  // AGENDA / JADWAL / ACARA — bare noun atau ada verba lihat (BUKAN saat membuat acara baru).
+  if (/\b(agenda|jadwal|acara)\b/.test(low) && (lihat || /^(agenda|jadwal|acara)$/.test(bare))) {
+    cmdAgenda(chatId); return true;
+  }
   return false;
 }
 
