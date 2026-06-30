@@ -73,11 +73,16 @@ function buildDashboard() {
   sh.getRange('C28:C35').setNumberFormat('"Rp"#,##0');
   sh.getRange('B28:B35').setHorizontalAlignment('center'); // kolom Tipe rata tengah
 
-  // Gradien warna pada kolom Total kategori: makin besar makin merah.
+  // Gradien warna pada kolom Total kategori (makin besar makin merah) +
+  // pewarnaan tipe transaksi terakhir (keluar=merah, masuk=hijau).
   sh.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule()
       .setGradientMinpoint('#FFFFFF').setGradientMaxpoint('#FCA5A5')
-      .setRanges([sh.getRange('B12:B24')]).build()
+      .setRanges([sh.getRange('B12:B24')]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('keluar')
+      .setFontColor('#B91C1C').setRanges([sh.getRange('B28:B35')]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('masuk')
+      .setFontColor('#15803D').setRanges([sh.getRange('B28:B35')]).build()
   ]);
 
   // Isi data sebelum membuat chart agar range grafik sudah berisi angka.

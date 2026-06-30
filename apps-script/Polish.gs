@@ -35,8 +35,26 @@ function polishSheets() {
     }
   });
   applyConditionalFormats();
+  reorderSheets(book);
+  var log = book.getSheetByName('Log');
+  if (log) log.hideSheet();              // Log = diagnostik internal, sembunyikan agar bersih
   SpreadsheetApp.flush();
   Logger.log('✅ Polish selesai untuk semua sheet data.');
+}
+
+/** Rapikan urutan tab: Dashboard → data → Arsip (tahun terbaru dulu); buka di Dashboard. */
+function reorderSheets(book) {
+  var pos = 1;
+  ['Dashboard', 'Keuangan', 'Tugas', 'Catatan', 'Jadwal', 'Kategori'].forEach(function (name) {
+    var s = book.getSheetByName(name);
+    if (s) { book.setActiveSheet(s); book.moveActiveSheet(pos++); }
+  });
+  book.getSheets()
+    .filter(function (s) { return /^Arsip \d{4}$/.test(s.getName()); })
+    .sort(function (a, b) { return b.getName().localeCompare(a.getName()); })
+    .forEach(function (s) { book.setActiveSheet(s); book.moveActiveSheet(pos++); });
+  var dash = book.getSheetByName('Dashboard');
+  if (dash) book.setActiveSheet(dash);   // default terbuka di Dashboard
 }
 
 /**
@@ -100,6 +118,7 @@ function styleSheet(s, c) {
     .setVerticalAlignment('middle').setHorizontalAlignment('left').setFontSize(10);
   s.setRowHeight(1, 30);
   s.setFrozenRows(1);
+  s.setFrozenColumns(1);                 // kolom pertama tetap terlihat saat scroll kanan
   try { s.setTabColor(c.color); } catch (e) {}
   s.setHiddenGridlines(true);
 
