@@ -29,10 +29,23 @@ function readAll(name) {
   return sheet(name).getDataRange().getValues();
 }
 
-/** ID berurutan, mis. nextId('Tugas','T-') -> 'T-0001'. */
+/**
+ * ID berurutan, mis. nextId('Tugas','T-') -> 'T-0001'.
+ * Pakai ANGKA TERBESAR yang ada + 1 (bukan jumlah baris) agar ID tidak pernah
+ * dipakai ulang walau ada entri di tengah yang dihapus (cegah ID kembar).
+ */
 function nextId(name, prefix) {
-  var seq = sheet(name).getLastRow(); // header dihitung 1 -> data pertama jadi 0001
-  return prefix + ('0000' + seq).slice(-4);
+  var s = sheet(name);
+  var last = s.getLastRow();
+  var max = 0;
+  if (last > 1) {
+    var ids = s.getRange(2, 1, last - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      var m = String(ids[i][0]).match(/(\d+)\s*$/);
+      if (m) { var n = parseInt(m[1], 10); if (n > max) max = n; }
+    }
+  }
+  return prefix + ('0000' + (max + 1)).slice(-4);
 }
 
 /** Catat kejadian ke sheet Log. Tidak melempar agar tak menggagalkan handler. */
