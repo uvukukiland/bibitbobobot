@@ -57,6 +57,12 @@ function cmdUang(tipe, args, chatId) {
   if (tipe === 'keluar') cekBudget(kategori, nominal, chatId);
 }
 
+/** /hapuslog → kosongkan sheet Log (diagnostik). */
+function cmdHapusLog(chatId) {
+  var n = bersihkanLog();
+  sendMessage(chatId, '🧹 Log dibersihkan (' + n + ' baris dihapus).');
+}
+
 /** " (19/06/2026)" bila tanggal bukan hari ini; '' bila hari ini. */
 function tanggalSuffix(d) {
   var tz = Session.getScriptTimeZone();

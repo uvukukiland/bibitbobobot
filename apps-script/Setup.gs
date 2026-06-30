@@ -94,6 +94,8 @@ var KATEGORI_DEFAULT = [
   ['olahraga', 'keluar'],
   ['hiburan', 'keluar'],
   ['tabungan', 'keluar'],    // setoran tabungan — CATATAN: ini mengurangi saldo "uang bebas"
+  ['utang', 'both'],         // terima pinjaman = masuk; bayar/lunasi utang = keluar
+  ['piutang', 'both'],       // meminjamkan ke orang = keluar; dibayar balik = masuk
   ['gaji', 'masuk'],
   ['freelance', 'masuk'],
   ['bonus', 'masuk'],

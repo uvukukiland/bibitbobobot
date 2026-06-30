@@ -58,3 +58,22 @@ function logEvent(level, event, detail) {
     Logger.log('Gagal tulis Log: ' + e);
   }
 }
+
+/** Kosongkan sheet Log (sisakan header). Kembalikan jumlah baris yang dihapus. */
+function bersihkanLog() {
+  var s = sheet('Log');
+  var last = s.getLastRow();
+  var n = Math.max(0, last - 1);
+  if (n > 0) s.deleteRows(2, n);
+  Logger.log('Log dibersihkan: ' + n + ' baris.');
+  return n;
+}
+
+/** Pangkas Log agar maksimal `max` baris data (buang yang TERLAMA di atas). */
+function trimLog(max) {
+  try {
+    var s = sheet('Log');
+    var n = s.getLastRow() - 1;
+    if (n > max) s.deleteRows(2, n - max);
+  } catch (e) { Logger.log('trimLog gagal: ' + e); }
+}

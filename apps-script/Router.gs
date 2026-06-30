@@ -37,6 +37,8 @@ function route(text, chatId) {
     case '/budget': cmdBudget(args, chatId); break;
     case '/export':
     case '/backup': cmdExport(chatId); break;
+    case '/hapuslog':
+    case '/bersihlog': cmdHapusLog(chatId); break;
     case '/saldo':  cmdSaldo(chatId); break;
     case '/status': cmdStatus(chatId); break;
     case '/rekap':  cmdRekap(args, chatId); break;

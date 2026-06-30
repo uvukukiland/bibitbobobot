@@ -82,6 +82,7 @@ function resetJadwalHarian() {
   var last = s.getLastRow();
   if (last > 1) s.getRange(2, 6, last - 1, 1).clearContent();
   nonaktifkanAcaraLewat();
+  trimLog(500); // jaga Log tetap ramping (maks 500 baris)
   logEvent('INFO', 'jadwal_reset', '');
 }
 

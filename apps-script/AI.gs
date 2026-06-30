@@ -55,7 +55,9 @@ var KATEGORI_KEYWORDS = {
   rumah: ['perabot', 'perabotan', 'furniture', 'mebel', 'perlengkapan rumah', 'perbaikan rumah', 'renovasi', 'galon', 'galon air', 'elpiji', 'lpg', 'gas elpiji', 'gas 3kg', 'tabung gas', 'regulator', 'gas', 'sapu', 'pel', 'lap', 'kanebo', 'pengki', 'serbet', 'ember', 'panci', 'wajan', 'piring', 'gelas', 'kompor', 'rice cooker', 'magic com', 'blender', 'mixer', 'vacuum', 'dispenser', 'kulkas', 'mesin cuci', 'kipas angin', 'kasur', 'bantal', 'sprei', 'gorden', 'karpet', 'keset', 'lemari', 'jam dinding', 'lampu', 'lampu led', 'bohlam', 'stop kontak', 'kabel listrik', 'pipa', 'kran', 'selang', 'cat tembok', 'semen', 'keramik', 'paku', 'obat nyamuk', 'baygon', 'pembersih lantai', 'wipol', 'sunlight', 'sikat wc', 'pengharum ruangan', 'kapur barus', 'tukang', 'tukang ledeng', 'tukang listrik', 'service ac', 'servis ac', 'service kulkas', 'service tv', 'service mesin cuci', 'asisten rumah tangga', 'pembantu', 'sewa rumah', 'kontrakan', 'bayar kos', 'kos', 'kost', 'laundry', 'cuci baju', 'setrika'],
   anak: ['popok', 'pampers', 'diapers', 'merries', 'mamypoko', 'susu anak', 'susu formula', 'sufor', 'sgm', 'bebelac', 'mpasi', 'bubur bayi', 'biskuit bayi', 'cerelac', 'milna', 'mainan', 'mainan anak', 'baju anak', 'baju bayi', 'sepatu anak', 'stroller', 'gendongan', 'box bayi', 'baby walker', 'car seat', 'breast pump', 'minyak telon', 'bedak bayi', 'sabun bayi', 'baby oil', 'baby cream', 'wet wipes', 'gurita', 'selimut bayi', 'vitamin anak', 'zwitsal', 'daycare', 'perlengkapan bayi'],
   sedekah: ['sedekah', 'sedekah subuh', 'jumat berkah', 'sodaqoh', 'zakat', 'zakat fitrah', 'zakat mal', 'infaq', 'infak', 'infak masjid', 'iuran masjid', 'donasi', 'sumbangan', 'amal', 'dana sosial', 'kemanusiaan', 'wakaf', 'qurban', 'kurban', 'aqiqah', 'fidyah', 'santunan', 'kotak amal', 'kencleng', 'panti asuhan', 'yatim', 'perpuluhan', 'kolekte', 'persembahan'],
-  olahraga: ['gym', 'fitness', 'fitnes', 'membership gym', 'jogging', 'lari', 'maraton', 'fun run', 'sepeda', 'sewa sepeda', 'gowes', 'helm sepeda', 'futsal', 'badminton', 'renang', 'kolam renang', 'kacamata renang', 'sewa lapangan', 'yoga', 'kelas yoga', 'zumba', 'kelas zumba', 'pilates', 'aerobik', 'boxing', 'muaythai', 'karate', 'taekwondo', 'pencak silat', 'panjat tebing', 'wall climbing', 'raket', 'shuttlecock', 'dumbbell', 'barbel', 'treadmill', 'whey protein', 'matras yoga']
+  olahraga: ['gym', 'fitness', 'fitnes', 'membership gym', 'jogging', 'lari', 'maraton', 'fun run', 'sepeda', 'sewa sepeda', 'gowes', 'helm sepeda', 'futsal', 'badminton', 'renang', 'kolam renang', 'kacamata renang', 'sewa lapangan', 'yoga', 'kelas yoga', 'zumba', 'kelas zumba', 'pilates', 'aerobik', 'boxing', 'muaythai', 'karate', 'taekwondo', 'pencak silat', 'panjat tebing', 'wall climbing', 'raket', 'shuttlecock', 'dumbbell', 'barbel', 'treadmill', 'whey protein', 'matras yoga'],
+  utang: ['utang', 'hutang', 'ngutang', 'berhutang', 'bayar utang', 'bayar hutang', 'lunasi utang', 'lunas utang', 'lunasi hutang', 'cicil utang', 'pinjaman', 'pinjam uang', 'minjam', 'minjem', 'pinjol', 'pinjaman online', 'kasbon', 'bon utang', 'dp pinjaman', 'angsuran utang', 'kredit teman', 'tarik tunai', 'gestun', 'gadai'],
+  piutang: ['piutang', 'minjemin', 'minjamin', 'meminjamkan', 'ngutangin', 'kasih pinjam', 'kasih utang', 'talangin', 'talangan', 'nalangin', 'dipinjam teman', 'utangin', 'pinjamkan']
 };
 
 /** Panduan pemetaan -> teks prompt (dibuat dari KATEGORI_KEYWORDS, satu sumber). */
@@ -66,6 +68,8 @@ function kategoriHintText() {
     lines.push('- ' + k + ': ' + kw.slice(0, 14).join(', ') + (kw.length > 14 ? ', dll' : '') + '.');
   });
   lines.push('Catatan "tiket": pesawat/kereta/bus = transport; konser/bioskop = hiburan.');
+  lines.push('Utang/pinjaman: terima pinjaman = masuk kategori "utang"; bayar/lunasi utang = keluar kategori "utang". Meminjamkan ke orang = keluar "piutang"; dibayar balik = masuk "piutang".');
+  lines.push('Cicilan/paylater/kartu kredit (kredivo, akulaku, shopee paylater, KPR) = "tagihan".');
   return lines.join('\n');
 }
 
@@ -518,6 +522,9 @@ function handleViewShortcut(text, chatId) {
 
   // RIWAYAT transaksi terakhir.
   if (/\briwayat\b/.test(low) || (/\btransaksi\b/.test(low) && /\b(terakhir|terbaru|lihat|liat|cek)\b/.test(low))) { cmdRiwayat([], chatId); return true; }
+
+  // HAPUS LOG.
+  if (/\blog\b/.test(low) && /\b(hapus|bersih|bersihkan|kosongkan|clear)\b/.test(low)) { cmdHapusLog(chatId); return true; }
 
   // CATATAN — bare "catatan", atau "lihat/cari catatan [kata]" (kata = pencarian).
   if (/\b(catatan|catetan|notes?)\b/.test(low) && (lihat || /^(catatan|catetan|notes?)$/.test(bare))) {
