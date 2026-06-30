@@ -516,6 +516,9 @@ function handleViewShortcut(text, chatId) {
   if (/\b(budget|anggaran)\b/.test(low) && !/\d/.test(low)) { cmdBudget([], chatId); return true; }
   if (/\b(export|ekspor|backup|cadangkan|cadangan)\b/.test(low)) { cmdExport(chatId); return true; }
 
+  // RIWAYAT transaksi terakhir.
+  if (/\briwayat\b/.test(low) || (/\btransaksi\b/.test(low) && /\b(terakhir|terbaru|lihat|liat|cek)\b/.test(low))) { cmdRiwayat([], chatId); return true; }
+
   // CATATAN — bare "catatan", atau "lihat/cari catatan [kata]" (kata = pencarian).
   if (/\b(catatan|catetan|notes?)\b/.test(low) && (lihat || /^(catatan|catetan|notes?)$/.test(bare))) {
     var q = String(text).toLowerCase()
@@ -576,7 +579,7 @@ function executeAction(a, chatId) {
       var when = (a.tanggal && isValidDate(a.tanggal)) ? new Date(a.tanggal + 'T12:00:00') : new Date();
       var ket = a.keterangan || '';
       if (a.arsip) ket += (ket ? ' | ' : '') + a.arsip;
-      append('Keuangan', [when, a.intent, a.nominal, kat, ket, a.sumber || 'bot-ai']);
+      append('Keuangan', [when, a.intent, a.nominal, kat, ket, a.sumber || 'bot-ai', nextId('Keuangan', 'K-', 7)]);
       logEvent('INFO', 'ai_keuangan_added', a.intent + ' ' + a.nominal + ' ' + kat);
       sendMessage(chatId, '✅ <b>Tersimpan</b>\n' + confirmText(a) + tanggalSuffix(when), { html: true, keyboard: quickActions() });
       refreshDashboard();
@@ -595,7 +598,7 @@ function executeAction(a, chatId) {
     case 'catat':
       if (!a.teks) { sendMessage(chatId, '❌ Catatan kosong — batal.'); return; }
       var isiCatat = a.teks + (a.arsip ? ' | ' + a.arsip : '');
-      append('Catatan', [new Date(), isiCatat]);
+      append('Catatan', [new Date(), isiCatat, nextId('Catatan', 'N-', 3)]);
       logEvent('INFO', 'ai_catatan_added', '');
       sendMessage(chatId, '✅ Catatan tersimpan.');
       break;

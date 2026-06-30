@@ -81,7 +81,24 @@ function resetJadwalHarian() {
   var s = sheet('Jadwal');
   var last = s.getLastRow();
   if (last > 1) s.getRange(2, 6, last - 1, 1).clearContent();
+  nonaktifkanAcaraLewat();
   logEvent('INFO', 'jadwal_reset', '');
+}
+
+/** Nonaktifkan acara sekali (one-off) yang tanggalnya sudah lewat agar Jadwal tetap ramping. */
+function nonaktifkanAcaraLewat() {
+  try {
+    var tz = Session.getScriptTimeZone();
+    var todayStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    var s = sheet('Jadwal');
+    var rows = s.getDataRange().getValues(); // id,label,waktu,hari,aktif,terkirim
+    for (var i = 1; i < rows.length; i++) {
+      var hd = toDateStr(rows[i][3], tz);                 // hanya acara one-off (kolom hari = tanggal)
+      if (hd && hd < todayStr && String(rows[i][4]).toLowerCase() === 'y') s.getRange(i + 1, 5).setValue('n');
+    }
+  } catch (e) {
+    logEvent('ERROR', 'nonaktif_acara_failed', String(e));
+  }
 }
 
 // ---------- Util ----------

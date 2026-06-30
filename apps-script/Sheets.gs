@@ -33,13 +33,15 @@ function readAll(name) {
  * ID berurutan, mis. nextId('Tugas','T-') -> 'T-0001'.
  * Pakai ANGKA TERBESAR yang ada + 1 (bukan jumlah baris) agar ID tidak pernah
  * dipakai ulang walau ada entri di tengah yang dihapus (cegah ID kembar).
+ * col = kolom tempat ID berada (default 1; Keuangan=7, Catatan=3).
  */
-function nextId(name, prefix) {
+function nextId(name, prefix, col) {
   var s = sheet(name);
   var last = s.getLastRow();
+  var c = col || 1;
   var max = 0;
   if (last > 1) {
-    var ids = s.getRange(2, 1, last - 1, 1).getValues();
+    var ids = s.getRange(2, c, last - 1, 1).getValues();
     for (var i = 0; i < ids.length; i++) {
       var m = String(ids[i][0]).match(/(\d+)\s*$/);
       if (m) { var n = parseInt(m[1], 10); if (n > max) max = n; }

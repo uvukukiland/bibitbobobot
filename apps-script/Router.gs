@@ -30,6 +30,7 @@ function route(text, chatId) {
 
     // Quality of life — lihat, rekap, edit & hapus
     case '/daftar': cmdDaftar(args, chatId); break;
+    case '/riwayat': cmdRiwayat(args, chatId); break;
     case '/catatan': cmdCatatan(args, chatId); break;
     case '/agenda': cmdAgenda(chatId); break;
     case '/kategori': cmdKategori(args, chatId); break;
@@ -94,9 +95,12 @@ function helpText() {
     '• /catat [teks]  ·  /catatan [kata]',
     '• /cari [kata] (Drive)  ·  /dropbox [kata]',
     '',
+    '🧾 <b>Riwayat &amp; Backup</b>',
+    '• /riwayat [n] (transaksi + ID)  ·  /export',
+    '',
     '✏️ <b>Perbaiki / Hapus</b>',
-    '• /edit terakhir | tugas [id] | catatan …',
-    '• /hapus terakhir | tugas [id] | bulan YYYY-MM',
+    '• /edit terakhir | K-0001 | tugas [id] | N-0001 …',
+    '• /hapus terakhir | K-0001 | tugas [id] | N-0001 | bulan YYYY-MM',
     '',
     '📸 <b>Foto</b>',
     'Kirim foto struk / transfer / resi / tulisan tangan — saya baca otomatis &amp; arsipkan.',

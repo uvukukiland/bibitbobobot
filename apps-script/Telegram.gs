@@ -97,6 +97,7 @@ function setupBotProfile() {
     { command: 'saldo',   description: '👛 Lihat saldo' },
     { command: 'rekap',   description: '📊 Rekap bulan/tahun' },
     { command: 'daftar',  description: '📋 Daftar tugas' },
+    { command: 'riwayat', description: '🧾 Transaksi terakhir + ID' },
     { command: 'tugas',   description: '➕ Tambah tugas' },
     { command: 'acara',   description: '📅 Tambah acara/agenda' },
     { command: 'catat',   description: '📝 Tambah catatan' },

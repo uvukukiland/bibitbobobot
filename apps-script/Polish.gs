@@ -13,9 +13,9 @@ var POLISH_HEADER_FG = '#FFFFFF';
 
 /** Konfigurasi per sheet: lebar kolom, kolom uang (Rp), kolom tanggal, warna tab. */
 var POLISH_CFG = {
-  Keuangan: { widths: [150, 90, 120, 130, 280, 110], money: [3], dates: [1], color: '#16A34A' },
+  Keuangan: { widths: [150, 90, 120, 130, 280, 110, 90], money: [3], dates: [1], color: '#16A34A' },
   Tugas:    { widths: [80, 340, 130, 100, 150],        money: [],  dates: [],  color: '#2563EB' },
-  Catatan:  { widths: [150, 480],                       money: [],  dates: [1], color: '#7C3AED' },
+  Catatan:  { widths: [150, 460, 90],                   money: [],  dates: [1], color: '#7C3AED' },
   Jadwal:   { widths: [80, 280, 90, 120, 80, 150],      money: [],  dates: [],  color: '#D97706' },
   Kategori: { widths: [190, 110],                       money: [],  dates: [],  color: '#0891B2' },
   Budget:   { widths: [190, 130],                       money: [2], dates: [],  color: '#DB2777' },

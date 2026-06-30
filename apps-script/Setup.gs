@@ -24,13 +24,40 @@ function setupProperties() {
 
 /** Skema 6 sheet sesuai §A desain. */
 var SCHEMA = {
-  Keuangan: ['timestamp', 'tipe', 'nominal', 'kategori', 'keterangan', 'sumber'],
+  Keuangan: ['timestamp', 'tipe', 'nominal', 'kategori', 'keterangan', 'sumber', 'id'],
   Tugas:    ['id', 'teks', 'jatuh_tempo', 'status', 'terkirim_pada'],
-  Catatan:  ['timestamp', 'teks'],
+  Catatan:  ['timestamp', 'teks', 'id'],
   Jadwal:   ['id', 'label', 'waktu', 'hari', 'aktif', 'terkirim_pada'],
   Log:      ['timestamp', 'level', 'event', 'detail'],
   Kategori: ['kategori', 'tipe']
 };
+
+/**
+ * MIGRASI (jalankan SEKALI dari editor untuk instalasi LAMA): tambah kolom 'id'
+ * ke Keuangan (kolom G) & Catatan (kolom C), lalu isi ID untuk baris yang belum punya.
+ * Aman & idempoten — hanya mengisi sel ID yang kosong.
+ */
+function migrateAddIds() {
+  backfillId('Keuangan', 7, 'K-');
+  backfillId('Catatan', 3, 'N-');
+  Logger.log('Migrasi ID selesai: Keuangan (kolom G) & Catatan (kolom C).');
+}
+
+function backfillId(name, col, prefix) {
+  var s = sheet(name);
+  if (s.getRange(1, col).getValue() !== 'id') s.getRange(1, col).setValue('id');
+  var last = s.getLastRow();
+  if (last <= 1) return;
+  var ids = s.getRange(2, col, last - 1, 1).getValues();
+  var seq = 0, i, m;
+  for (i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim()) { m = String(ids[i][0]).match(/(\d+)/); if (m) seq = Math.max(seq, parseInt(m[1], 10)); }
+  }
+  for (i = 0; i < ids.length; i++) {
+    if (!String(ids[i][0]).trim()) { seq++; ids[i][0] = prefix + ('0000' + seq).slice(-4); }
+  }
+  s.getRange(2, col, ids.length, 1).setValues(ids);
+}
 
 /**
  * LANGKAH 2 — buat semua sheet + header. Aman dijalankan berulang (idempoten):

@@ -46,7 +46,7 @@ function cmdUang(tipe, args, chatId) {
   }
 
   var keterangan = rest.slice(2).join(' ');
-  append('Keuangan', [tanggal, tipe, nominal, kategori, keterangan, 'bot']);
+  append('Keuangan', [tanggal, tipe, nominal, kategori, keterangan, 'bot', nextId('Keuangan', 'K-', 7)]);
   logEvent('INFO', 'keuangan_added', tipe + ' ' + nominal + ' ' + kategori);
   sendMessage(chatId,
     '✅ <b>Tercatat</b>\n' + (tipe === 'keluar' ? '💸 Pengeluaran' : '💰 Pemasukan') +
@@ -100,7 +100,7 @@ function cmdTugas(args, chatId) {
 function cmdCatat(rawText, chatId) {
   var teks = rawText.replace(/^\/catat\s*/i, '').trim();
   if (!teks) { sendMessage(chatId, 'Format: /catat <teks>'); return; }
-  append('Catatan', [new Date(), teks]);
+  append('Catatan', [new Date(), teks, nextId('Catatan', 'N-', 3)]);
   logEvent('INFO', 'catatan_added', '');
   sendMessage(chatId, '✅ Catatan disimpan.');
 }

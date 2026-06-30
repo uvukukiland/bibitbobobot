@@ -212,21 +212,43 @@ function cmdSaldo(chatId) {
 function cmdCatatan(args, chatId) {
   var q = args.join(' ').toLowerCase().trim();
   var tz = Session.getScriptTimeZone();
-  var rows = readAll('Catatan'); // timestamp, teks
+  var rows = readAll('Catatan'); // timestamp, teks, id
   var items = [];
   for (var i = 1; i < rows.length; i++) {
     var teks = String(rows[i][1]);
     if (q && teks.toLowerCase().indexOf(q) === -1) continue;
-    items.push({ t: rows[i][0], teks: teks });
+    items.push({ t: rows[i][0], teks: teks, id: rows[i][2] });
   }
   if (!items.length) { sendMessage(chatId, q ? 'Tidak ada catatan memuat "' + htmlEsc(q) + '".' : 'Belum ada catatan.', { html: true }); return; }
   var last = items.slice(-5).reverse();
   var out = [q ? '🔎 <b>Catatan memuat "' + htmlEsc(q) + '"</b>' : '🗒️ <b>Catatan terakhir</b>', '━━━━━━━━━━━━━━'];
   last.forEach(function (c) {
     var tgl = (c.t instanceof Date) ? Utilities.formatDate(c.t, tz, 'dd/MM HH:mm') : String(c.t);
-    out.push('• <i>' + htmlEsc(tgl) + '</i>  ' + htmlEsc(c.teks));
+    out.push((c.id ? '<b>' + htmlEsc(String(c.id)) + '</b> ' : '• ') + '<i>' + htmlEsc(tgl) + '</i>  ' + htmlEsc(c.teks));
   });
   if (!q && items.length > 5) out.push('', '<i>5 terbaru dari ' + items.length + ' catatan</i>');
+  out.push('<i>Hapus: /hapus N-0001 · ubah: /edit N-0001 teks baru</i>');
+  sendMessage(chatId, out.join('\n'), { html: true });
+}
+
+/** /riwayat [n] → n transaksi terakhir + ID (untuk edit/hapus entri lama). */
+function cmdRiwayat(args, chatId) {
+  var n = parseInt(args[0], 10);
+  if (isNaN(n) || n < 1) n = 10;
+  if (n > 30) n = 30;
+  var tz = Session.getScriptTimeZone();
+  var rows = readAll('Keuangan');
+  if (rows.length <= 1) { sendMessage(chatId, 'Belum ada transaksi.'); return; }
+  var items = [];
+  for (var i = rows.length - 1; i >= 1 && items.length < n; i--) {
+    var r = rows[i];
+    var dt = (r[0] instanceof Date) ? Utilities.formatDate(r[0], tz, 'dd/MM') : String(r[0]);
+    var sign = String(r[1]).toLowerCase() === 'masuk' ? '➕' : '➖';
+    items.push((r[6] ? '<b>' + htmlEsc(String(r[6])) + '</b> ' : '') + '<i>' + dt + '</i> ' + sign + 'Rp' + formatRupiah(Number(r[2]) || 0) +
+      ' · ' + htmlEsc(String(r[3] || '-')) + (r[4] ? ' · ' + htmlEsc(String(r[4])) : ''));
+  }
+  var out = ['🧾 <b>' + items.length + ' Transaksi Terakhir</b>', '━━━━━━━━━━━━━━'].concat(items);
+  out.push('━━━━━━━━━━━━━━', '<i>Hapus: /hapus K-0001 · ubah: /edit K-0001 nominal 30000</i>');
   sendMessage(chatId, out.join('\n'), { html: true });
 }
 
@@ -332,17 +354,26 @@ function cmdEdit(args, chatId) {
   if (sub === 'terakhir') { editKeuanganTerakhir(normField(args[1]), args.slice(2).join(' '), chatId); return; }
   if (sub === 'tugas')    { editTugas(args[1], normField(args[2]), args.slice(3).join(' '), chatId); return; }
   if (sub === 'catatan')  { editCatatanTerakhir(args.slice(1).join(' '), chatId); return; }
+  if (/^k-?\d+$/.test(sub)) { editKeuanganById(args[0], normField(args[1]), args.slice(2).join(' '), chatId); return; }
+  if (/^n-?\d+$/.test(sub)) { editCatatanById(args[0], args.slice(1).join(' '), chatId); return; }
 
   sendMessage(chatId, [
     'Cara edit:',
-    '/edit terakhir <field> <nilai>',
+    '/edit terakhir <field> <nilai>  ·  /edit K-0001 <field> <nilai>',
     '   field: nominal | kategori | keterangan | tipe | tanggal',
-    '   mis. /edit terakhir nominal 30000',
+    '   mis. /edit terakhir nominal 30000  ·  /edit K-0042 kategori belanja',
     '/edit tugas <id> <field> <nilai>',
     '   field: teks | tenggat | status',
     '   mis. /edit tugas T-0001 tenggat 2026-06-30',
-    '/edit catatan <teks baru>'
+    '/edit catatan <teks baru>  ·  /edit N-0003 <teks baru>',
+    '(Lihat ID transaksi: /riwayat · ID catatan: /catatan)'
   ].join('\n'));
+}
+
+/** Normalkan ID: "k1"/"K-1"/"K-0001" -> "K-0001". */
+function normId(raw, prefix) {
+  var m = String(raw || '').toUpperCase().match(/(\d+)/);
+  return m ? prefix + ('0000' + parseInt(m[1], 10)).slice(-4) : String(raw || '').toUpperCase();
 }
 
 /** Edit transaksi keuangan paling akhir. */
@@ -350,7 +381,24 @@ function editKeuanganTerakhir(field, nilai, chatId) {
   var s = sheet('Keuangan');
   var last = s.getLastRow();
   if (last <= 1) { sendMessage(chatId, 'Belum ada transaksi untuk diedit.'); return; }
+  applyKeuanganEdit(s, last, field, nilai, chatId);
+}
+
+/** Edit transaksi keuangan berdasarkan ID (kolom G). */
+function editKeuanganById(idRaw, field, nilai, chatId) {
+  var id = normId(idRaw, 'K-');
+  var s = sheet('Keuangan');
+  var rows = s.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][6]).toUpperCase() === id) { applyKeuanganEdit(s, i + 1, field, nilai, chatId); return; }
+  }
+  sendMessage(chatId, '❌ Transaksi ' + id + ' tidak ditemukan. Lihat ID di /riwayat.');
+}
+
+/** Terapkan edit pada satu baris Keuangan (rowNum 1-based). */
+function applyKeuanganEdit(s, rowNum, field, nilai, chatId) {
   if (!String(nilai).trim()) { sendMessage(chatId, '❌ Nilai baru kosong.'); return; }
+  var last = rowNum;
   var row = s.getRange(last, 1, 1, 6).getValues()[0]; // [waktu,tipe,nominal,kategori,ket,sumber]
 
   switch (field) {
@@ -441,11 +489,15 @@ function cmdHapus(args, chatId) {
   if (sub === 'terakhir') { hapusKeuanganTerakhir(chatId); return; }
   if (sub === 'tugas')    { hapusTugas(args[1], chatId); return; }
   if (sub === 'bulan')    { hapusKeuanganBulan(args[1], args[2], chatId); return; }
+  if (/^k-?\d+$/.test(sub)) { hapusKeuanganById(args[0], chatId); return; }
+  if (/^n-?\d+$/.test(sub)) { hapusCatatanById(args[0], chatId); return; }
 
   sendMessage(chatId, [
     'Cara hapus:',
     '/hapus terakhir — transaksi keuangan terakhir',
+    '/hapus K-0001 — transaksi tertentu (lihat ID di /riwayat)',
     '/hapus tugas <id> — mis. /hapus tugas T-0001',
+    '/hapus N-0003 — catatan tertentu (lihat ID di /catatan)',
     '/hapus bulan YYYY-MM — semua keuangan 1 bulan (perlu konfirmasi)'
   ].join('\n'));
 }
@@ -461,6 +513,59 @@ function hapusKeuanganTerakhir(chatId) {
   sendMessage(chatId, '🗑️ Dihapus: ' + String(r[1]).toLowerCase() + ' Rp' + formatRupiah(Number(r[2]) || 0) +
     ' · ' + (r[3] || '-') + (r[4] ? ' · ' + r[4] : ''));
   refreshDashboard();
+}
+
+/** Hapus transaksi keuangan berdasarkan ID (kolom G). */
+function hapusKeuanganById(idRaw, chatId) {
+  var id = normId(idRaw, 'K-');
+  var s = sheet('Keuangan');
+  var rows = s.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][6]).toUpperCase() === id) {
+      var r = rows[i];
+      s.deleteRow(i + 1);
+      logEvent('INFO', 'keuangan_deleted_id', id);
+      sendMessage(chatId, '🗑️ ' + id + ' dihapus: ' + String(r[1]).toLowerCase() + ' Rp' + formatRupiah(Number(r[2]) || 0) +
+        ' · ' + (r[3] || '-') + (r[4] ? ' · ' + r[4] : ''));
+      refreshDashboard();
+      return;
+    }
+  }
+  sendMessage(chatId, '❌ Transaksi ' + id + ' tidak ditemukan. Lihat ID di /riwayat.');
+}
+
+/** Hapus catatan berdasarkan ID (kolom C). */
+function hapusCatatanById(idRaw, chatId) {
+  var id = normId(idRaw, 'N-');
+  var s = sheet('Catatan');
+  var rows = s.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]).toUpperCase() === id) {
+      var teks = rows[i][1];
+      s.deleteRow(i + 1);
+      logEvent('INFO', 'catatan_deleted_id', id);
+      sendMessage(chatId, '🗑️ Catatan ' + id + ' dihapus: ' + teks);
+      return;
+    }
+  }
+  sendMessage(chatId, '❌ Catatan ' + id + ' tidak ditemukan. Lihat ID di /catatan.');
+}
+
+/** Edit catatan berdasarkan ID (kolom C). */
+function editCatatanById(idRaw, teks, chatId) {
+  if (!String(teks).trim()) { sendMessage(chatId, 'Format: /edit N-0001 <teks baru>'); return; }
+  var id = normId(idRaw, 'N-');
+  var s = sheet('Catatan');
+  var rows = s.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][2]).toUpperCase() === id) {
+      s.getRange(i + 1, 2).setValue(teks);
+      logEvent('INFO', 'catatan_edited_id', id);
+      sendMessage(chatId, '✏️ Catatan ' + id + ' diperbarui: ' + teks);
+      return;
+    }
+  }
+  sendMessage(chatId, '❌ Catatan ' + id + ' tidak ditemukan. Lihat ID di /catatan.');
 }
 
 /** Hapus satu tugas berdasarkan ID. */
