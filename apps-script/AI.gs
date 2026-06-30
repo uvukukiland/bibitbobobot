@@ -512,6 +512,10 @@ function handleViewShortcut(text, chatId) {
   // KATEGORI.
   if (/\bkategori\b/.test(low)) { cmdKategori([], chatId); return true; }
 
+  // BUDGET (lihat daftar) & EXPORT/BACKUP.
+  if (/\b(budget|anggaran)\b/.test(low) && !/\d/.test(low)) { cmdBudget([], chatId); return true; }
+  if (/\b(export|ekspor|backup|cadangkan|cadangan)\b/.test(low)) { cmdExport(chatId); return true; }
+
   // CATATAN — bare "catatan", atau "lihat/cari catatan [kata]" (kata = pencarian).
   if (/\b(catatan|catetan|notes?)\b/.test(low) && (lihat || /^(catatan|catetan|notes?)$/.test(bare))) {
     var q = String(text).toLowerCase()
@@ -576,6 +580,7 @@ function executeAction(a, chatId) {
       logEvent('INFO', 'ai_keuangan_added', a.intent + ' ' + a.nominal + ' ' + kat);
       sendMessage(chatId, '✅ <b>Tersimpan</b>\n' + confirmText(a) + tanggalSuffix(when), { html: true, keyboard: quickActions() });
       refreshDashboard();
+      if (a.intent === 'keluar') cekBudget(kat, a.nominal, chatId);
       break;
 
     case 'tugas':

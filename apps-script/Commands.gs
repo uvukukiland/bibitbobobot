@@ -54,6 +54,7 @@ function cmdUang(tipe, args, chatId) {
     (keterangan ? '\n📝 ' + htmlEsc(keterangan) : '') + tanggalSuffix(tanggal),
     { html: true, keyboard: quickActions() });
   refreshDashboard();
+  if (tipe === 'keluar') cekBudget(kategori, nominal, chatId);
 }
 
 /** " (19/06/2026)" bila tanggal bukan hari ini; '' bila hari ini. */

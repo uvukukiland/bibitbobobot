@@ -206,6 +206,50 @@ function installRingkasanTrigger() {
   Logger.log('Trigger ringkasan harian jam ' + hour + ':00 (menggantikan heartbeat).');
 }
 
+// ---------- Ringkasan mingguan ----------
+
+/** Rangkuman 7 hari terakhir: total masuk/keluar + kategori teratas. */
+function sendRingkasanMingguan() {
+  try {
+    var tz = Session.getScriptTimeZone();
+    var now = new Date();
+    var sejak = new Date(now.getTime() - 7 * 86400000);
+    var rows = readAll('Keuangan');
+    var masuk = 0, keluar = 0, nTx = 0, perKat = {};
+    for (var i = 1; i < rows.length; i++) {
+      var dt = (rows[i][0] instanceof Date) ? rows[i][0] : new Date(rows[i][0]);
+      if (isNaN(dt.getTime()) || dt < sejak) continue;
+      var t = String(rows[i][1]).toLowerCase(), n = Number(rows[i][2]) || 0;
+      nTx++;
+      if (t === 'masuk') masuk += n;
+      else if (t === 'keluar') { keluar += n; var k = String(rows[i][3] || 'lainnya').toLowerCase(); perKat[k] = (perKat[k] || 0) + n; }
+    }
+    var top = Object.keys(perKat).map(function (k) { return [k, perKat[k]]; })
+      .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5);
+    var out = ['📈 <b>Ringkasan Pekan Ini</b>',
+      '<i>' + Utilities.formatDate(sejak, tz, 'dd/MM') + ' – ' + Utilities.formatDate(now, tz, 'dd/MM') + '</i>',
+      '━━━━━━━━━━━━━━',
+      '💰 Masuk  : <b>Rp' + formatRupiah(masuk) + '</b>',
+      '💸 Keluar : <b>Rp' + formatRupiah(keluar) + '</b>',
+      '🟦 Selisih: <b>Rp' + formatRupiah(masuk - keluar) + '</b>',
+      '<i>' + nTx + ' transaksi</i>'];
+    if (top.length) { out.push('', '<b>🏆 Pengeluaran teratas</b>'); top.forEach(function (t, i) { out.push((i + 1) + '. ' + htmlEsc(t[0]) + ' — <b>Rp' + formatRupiah(t[1]) + '</b>'); }); }
+    else out.push('', '<i>Belum ada pengeluaran pekan ini.</i>');
+    sendMessage(cfg('ALLOWED_CHAT_ID'), out.join('\n'), { html: true });
+    logEvent('INFO', 'ringkasan_mingguan_sent', '');
+  } catch (e) {
+    logEvent('ERROR', 'ringkasan_mingguan_failed', String(e));
+  }
+}
+
+/** Pasang trigger ringkasan mingguan (Minggu malam). Jalankan sekali dari editor. */
+function installRingkasanMingguanTrigger() {
+  removeTriggers(['sendRingkasanMingguan']);
+  var hour = parseInt(cfgOptional('RINGKAS_MINGGU_HOUR', '19'), 10);
+  ScriptApp.newTrigger('sendRingkasanMingguan').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(hour).create();
+  Logger.log('Trigger ringkasan mingguan (Minggu jam ' + hour + ':00) terpasang.');
+}
+
 // ---------- Acara satu kali (one-off) ----------
 
 /** Tambah acara tanggal spesifik ke sheet Jadwal (kolom hari = tanggal). */

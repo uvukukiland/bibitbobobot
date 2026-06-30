@@ -259,7 +259,7 @@ function cmdStatus(chatId) {
   });
   out.push('', '<b>Trigger</b>');
   var trigs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
-  ['reminderTick', 'resetJadwalHarian', 'sendRingkasanHarian', 'refreshDashboard'].forEach(function (fn) {
+  ['reminderTick', 'resetJadwalHarian', 'sendRingkasanHarian', 'sendRingkasanMingguan', 'refreshDashboard', 'arsipKeuangan'].forEach(function (fn) {
     out.push((trigs.indexOf(fn) >= 0 ? '✅' : '⬜') + ' ' + fn);
   });
   try {

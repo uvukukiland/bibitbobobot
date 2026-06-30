@@ -103,8 +103,10 @@ function setupBotProfile() {
     { command: 'catatan', description: '🗒️ Lihat catatan' },
     { command: 'agenda',  description: '🗓️ Acara mendatang' },
     { command: 'kategori', description: '🏷️ Daftar kategori' },
+    { command: 'budget',  description: '🎯 Atur/lihat budget' },
     { command: 'cari',    description: '🔎 Cari berkas Drive' },
     { command: 'dropbox', description: '📦 Cari berkas Dropbox' },
+    { command: 'export',  description: '🗂️ Backup data (.xlsx)' },
     { command: 'status',  description: '⚙️ Status bot' },
     { command: 'help',    description: '❓ Bantuan & contoh' }
   ];
@@ -118,6 +120,19 @@ function setupBotProfile() {
       'Tekan Mulai lalu ketik /help untuk contoh.'
   });
   Logger.log('Profil bot terpasang: menu perintah + deskripsi.');
+}
+
+/** Kirim file (dokumen) ke chat. blob = Blob ber-nama. caption opsional. */
+function sendDocument(chatId, blob, caption) {
+  var url = TG_API + cfg('TELEGRAM_BOT_TOKEN') + '/sendDocument';
+  var res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    payload: { chat_id: String(chatId), caption: caption || '', document: blob },
+    muteHttpExceptions: true
+  });
+  var body; try { body = JSON.parse(res.getContentText()); } catch (e) { body = { ok: false }; }
+  if (!body.ok) logEvent('ERROR', 'tg_sendDocument_failed', res.getContentText().slice(0, 300));
+  return body;
 }
 
 /** Unduh file Telegram (mis. foto) sebagai Blob. Lempar bila gagal. */

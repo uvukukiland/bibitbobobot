@@ -18,6 +18,7 @@ var POLISH_CFG = {
   Catatan:  { widths: [150, 480],                       money: [],  dates: [1], color: '#7C3AED' },
   Jadwal:   { widths: [80, 280, 90, 120, 80, 150],      money: [],  dates: [],  color: '#D97706' },
   Kategori: { widths: [190, 110],                       money: [],  dates: [],  color: '#0891B2' },
+  Budget:   { widths: [190, 130],                       money: [2], dates: [],  color: '#DB2777' },
   Log:      { widths: [150, 80, 210, 380],              money: [],  dates: [1], color: '#64748B' }
 };
 
@@ -45,7 +46,7 @@ function polishSheets() {
 /** Rapikan urutan tab: Dashboard → data → Arsip (tahun terbaru dulu); buka di Dashboard. */
 function reorderSheets(book) {
   var pos = 1;
-  ['Dashboard', 'Keuangan', 'Tugas', 'Catatan', 'Jadwal', 'Kategori'].forEach(function (name) {
+  ['Dashboard', 'Keuangan', 'Tugas', 'Catatan', 'Jadwal', 'Kategori', 'Budget'].forEach(function (name) {
     var s = book.getSheetByName(name);
     if (s) { book.setActiveSheet(s); book.moveActiveSheet(pos++); }
   });

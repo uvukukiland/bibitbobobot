@@ -33,6 +33,9 @@ function route(text, chatId) {
     case '/catatan': cmdCatatan(args, chatId); break;
     case '/agenda': cmdAgenda(chatId); break;
     case '/kategori': cmdKategori(args, chatId); break;
+    case '/budget': cmdBudget(args, chatId); break;
+    case '/export':
+    case '/backup': cmdExport(chatId); break;
     case '/saldo':  cmdSaldo(chatId); break;
     case '/status': cmdStatus(chatId); break;
     case '/rekap':  cmdRekap(args, chatId); break;
@@ -80,6 +83,7 @@ function helpText() {
     '• "kopi 25rb"  atau  /keluar [nominal] [kategori] [ket]',
     '• "gaji masuk 5jt"  atau  /masuk [nominal] [kategori]',
     '• /saldo  ·  /rekap [YYYY-MM | YYYY]  ·  /kategori [nama]',
+    '• /budget [kategori] [nominal]  ·  /export (backup .xlsx)',
     '',
     '✅ <b>Tugas &amp; Agenda</b>',
     '• /tugas [teks] [#YYYY-MM-DD]  ·  /daftar [semua]',
