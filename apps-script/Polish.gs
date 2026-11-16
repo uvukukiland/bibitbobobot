@@ -19,6 +19,7 @@ var POLISH_CFG = {
   Jadwal:   { widths: [80, 280, 90, 120, 80, 150],      money: [],  dates: [],  color: '#D97706' },
   Kategori: { widths: [190, 110],                       money: [],  dates: [],  color: '#0891B2' },
   Budget:   { widths: [190, 130],                       money: [2], dates: [],  color: '#DB2777' },
+  Kamus:    { widths: [280, 160],                       money: [],  dates: [],  color: '#0EA5E9' },
   Log:      { widths: [150, 80, 210, 380],              money: [],  dates: [1], color: '#64748B' }
 };
 
@@ -36,6 +37,7 @@ function polishSheets() {
     }
   });
   applyConditionalFormats();
+  applyDataValidation();
   reorderSheets(book);
   var log = book.getSheetByName('Log');
   if (log) log.hideSheet();              // Log = diagnostik internal, sembunyikan agar bersih
@@ -46,7 +48,7 @@ function polishSheets() {
 /** Rapikan urutan tab: Dashboard → data → Arsip (tahun terbaru dulu); buka di Dashboard. */
 function reorderSheets(book) {
   var pos = 1;
-  ['Dashboard', 'Keuangan', 'Tugas', 'Catatan', 'Jadwal', 'Kategori', 'Budget'].forEach(function (name) {
+  ['Dashboard', 'Keuangan', 'Tugas', 'Catatan', 'Jadwal', 'Kategori', 'Budget', 'Kamus'].forEach(function (name) {
     var s = book.getSheetByName(name);
     if (s) { book.setActiveSheet(s); book.moveActiveSheet(pos++); }
   });
@@ -61,7 +63,7 @@ function reorderSheets(book) {
 /**
  * Pewarnaan otomatis (conditional formatting) yang anti-locale (pakai kondisi bawaan,
  * BUKAN rumus dgn pemisah argumen — hindari jebakan ; vs , di id_ID).
- * - Keuangan: tipe keluar=merah / masuk=hijau; nominal ≥ 1 juta jadi tebal-merah.
+ * - Keuangan: tipe keluar=merah / masuk=hijau; nominal ≥ 1 juta dicetak tebal.
  * - Tugas: status done=abu / open=biru.
  * - Arsip <tahun>: tipe keluar=merah / masuk=hijau.
  * setConditionalFormatRules MENGGANTI semua aturan → idempoten.
@@ -70,13 +72,14 @@ function applyConditionalFormats() {
   var book = ss();
 
   var keu = book.getSheetByName('Keuangan');
-  if (keu) {
+  if (keu && keu.getMaxRows() > 1) {
     var n = keu.getMaxRows() - 1;
     var tipe = keu.getRange(2, 2, n, 1);     // kolom tipe
     var nom = keu.getRange(2, 3, n, 1);      // kolom nominal
     keu.setConditionalFormatRules([
+      // Tebal saja (bukan merah): pemasukan besar seperti gaji tak boleh tampak seperti peringatan.
       SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(1000000)
-        .setBold(true).setFontColor('#B91C1C').setRanges([nom]).build(),
+        .setBold(true).setFontColor('#0F172A').setRanges([nom]).build(),
       SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('keluar')
         .setBackground('#FEE2E2').setFontColor('#B91C1C').setRanges([tipe]).build(),
       SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('masuk')
@@ -85,7 +88,7 @@ function applyConditionalFormats() {
   }
 
   var tug = book.getSheetByName('Tugas');
-  if (tug) {
+  if (tug && tug.getMaxRows() > 1) {
     var st = tug.getRange(2, 4, tug.getMaxRows() - 1, 1); // kolom status
     tug.setConditionalFormatRules([
       SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('done')
@@ -96,7 +99,7 @@ function applyConditionalFormats() {
   }
 
   book.getSheets().forEach(function (s) {
-    if (!/^Arsip \d{4}$/.test(s.getName())) return;
+    if (!/^Arsip \d{4}$/.test(s.getName()) || s.getMaxRows() < 2) return;
     var t = s.getRange(2, 3, s.getMaxRows() - 1, 1); // kolom tipe di arsip
     s.setConditionalFormatRules([
       SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('keluar')
@@ -105,6 +108,38 @@ function applyConditionalFormats() {
         .setBackground('#DCFCE7').setFontColor('#15803D').setRanges([t]).build()
     ]);
   });
+}
+
+/**
+ * Dropdown pilihan (data validation) agar edit MANUAL di sheet tak salah ketik.
+ * Anti-locale: daftar nilai & rentang sel, BUKAN rumus. setAllowInvalid(true) = hanya peringatan
+ * (bot tetap bisa menulis; sel tak valid ditandai segitiga merah). Kategori diambil langsung dari
+ * sheet Kategori, jadi kategori baru otomatis ikut muncul di dropdown.
+ */
+function applyDataValidation() {
+  var book = ss();
+  var kat = book.getSheetByName('Kategori');
+  var rentangKat = (kat && kat.getMaxRows() > 1) ? kat.getRange(2, 1, kat.getMaxRows() - 1, 1) : null;
+  var daftar = function (nilai, bantuan) {
+    return SpreadsheetApp.newDataValidation().requireValueInList(nilai, true).setAllowInvalid(true).setHelpText(bantuan).build();
+  };
+  var dariKategori = function (bantuan) {
+    return SpreadsheetApp.newDataValidation().requireValueInRange(rentangKat, true).setAllowInvalid(true).setHelpText(bantuan).build();
+  };
+  var pasang = function (nama, kolom, aturan) {
+    var s = book.getSheetByName(nama);
+    if (!s || !aturan || s.getMaxRows() < 2) return;
+    s.getRange(2, kolom, s.getMaxRows() - 1, 1).setDataValidation(aturan);
+  };
+  pasang('Keuangan', 2, daftar(['keluar', 'masuk'], 'Pilih: keluar atau masuk'));
+  pasang('Tugas', 4, daftar(['open', 'done'], 'open = belum selesai, done = selesai'));
+  pasang('Jadwal', 5, daftar(['y', 'n'], 'y = aktif, n = nonaktif'));
+  pasang('Kategori', 2, daftar(['keluar', 'masuk', 'both'], 'Tipe kategori: keluar / masuk / both'));
+  if (rentangKat) {
+    pasang('Keuangan', 4, dariKategori('Pilih kategori yang terdaftar di sheet Kategori'));
+    pasang('Budget', 1, dariKategori('Kategori pengeluaran yang diberi batas'));
+    pasang('Kamus', 2, dariKategori('Kategori tujuan kata ini'));
+  }
 }
 
 /** Terapkan gaya konsisten pada satu sheet. */
