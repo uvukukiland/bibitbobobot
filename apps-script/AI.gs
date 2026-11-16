@@ -9,9 +9,9 @@ var ACTION_SCHEMA = {
   type: 'object',
   properties: {
     intent: { type: 'string', enum: ['keluar', 'masuk', 'tugas', 'catat', 'cari', 'rekap', 'selesai', 'hapus', 'daftar', 'edit', 'acara', 'unknown'] },
-    nominal: { type: 'integer' },
-    kategori: { type: 'string' },
-    keterangan: { type: 'string' },
+    nominal: { type: 'integer', description: 'Jumlah rupiah bulat, mis. "50rb" -> 50000.' },
+    kategori: { type: 'string', description: 'WAJIB diisi bila intent keluar/masuk: nama kategori PERSIS dari daftar yang diizinkan (hindari "lainnya").' },
+    keterangan: { type: 'string', description: 'Keterangan singkat transaksi, mis. nama barang/tempat.' },
     teks: { type: 'string' },
     jatuh_tempo: { type: 'string' },
     query: { type: 'string' },
@@ -25,6 +25,19 @@ var ACTION_SCHEMA = {
   },
   required: ['intent']
 };
+
+/**
+ * Salinan ACTION_SCHEMA dengan `kategori` dibatasi (enum) ke nama kategori di sheet Kategori,
+ * agar Gemini tak bisa mengarang kategori. Bila sheet kosong/gagal dibaca, pakai skema biasa.
+ */
+function actionSchemaDinamis() {
+  var s = JSON.parse(JSON.stringify(ACTION_SCHEMA));
+  try {
+    var nama = Object.keys(kategoriSheetMap());
+    if (nama.length) s.properties.kategori.enum = nama;
+  } catch (e) { logEvent('WARN', 'schema_kategori_gagal', String(e).slice(0, 120)); }
+  return s;
+}
 
 /** Bangun ringkasan daftar kategori untuk diberikan ke model. */
 function kategoriListText() {
@@ -232,7 +245,7 @@ function geminiParse(text) {
     contents: [{ parts: [{ text: text + petunjukKamus(text) }] }],
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: ACTION_SCHEMA
+      responseSchema: actionSchemaDinamis()
     }
   };
 
@@ -268,7 +281,9 @@ function chatHistorySave(chatId, userText, modelText) {
  */
 function geminiChat(text, chatId) {
   var apiKey = cfg('GEMINI_API_KEY');
-  var model = cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT);
+  // Obrolan boleh memakai model lebih pintar (GEMINI_CHAT_MODEL, mis. gemini-3.8-flash) tanpa
+  // memperlambat pencatatan transaksi yang tetap memakai GEMINI_MODEL (cepat).
+  var model = cfgOptional('GEMINI_CHAT_MODEL', cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT));
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
 
   var sys = [

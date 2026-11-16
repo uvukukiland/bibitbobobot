@@ -217,6 +217,16 @@ function daftarModelTersedia(p) {
   }
 }
 
+/** Kalimat uji urai transaksi: [teks, intent, nominal, kategori yang diharapkan]. */
+var UJI_GEMINI = [
+  ['tadi isi bensinnya 50rb di spbu', 'keluar', 50000, 'transport'],
+  ['gajian bulan ini 5jt', 'masuk', 5000000, 'gaji'],
+  ['beli obat batuk di apotek 35rb', 'keluar', 35000, 'kesehatan'],
+  ['bayar token listrik 100rb', 'keluar', 100000, 'tagihan'],
+  ['dapet cashback shopee 20rb', 'masuk', 20000, 'refund'],
+  ['beli kado ulang tahun buat ponakan 150rb', 'keluar', 150000, 'belanja']
+];
+
 /**
  * Jalankan dari EDITOR (buka AIProviders.gs, pilih testGemini, ▶ Jalankan) untuk mengecek apakah
  * API key GEMINI sudah terpasang & berjalan, lewat jalur yang sama dgn bot: (1) urai transaksi,
@@ -233,27 +243,44 @@ function testGemini() {
       'Hapus spasi/enter itu di Script Properties.');
   }
   var model = cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT);
+  var mObrol = cfgOptional('GEMINI_CHAT_MODEL', model);
   var visi = cfgOptional('GEMINI_VISION_MODEL', model);
-  logAman('Gemini · model teks: ' + model + ' · model foto: ' + visi);
+  logAman('Gemini · model catat: ' + model + ' · model obrolan: ' + mObrol + ' · model foto: ' + visi);
 
-  // 1) Urai transaksi — persis jalur bot (geminiParse).
-  var uji = 'tadi isi bensinnya 50rb di spbu', a = null, lempar = false, t0 = Date.now();
-  try { a = geminiParse(uji); } catch (e) { lempar = true; laporLempar('urai transaksi', e); }
-  var ms = Date.now() - t0;
-  if (a) {
-    var pas = a.intent === 'keluar' && Number(a.nominal) === 50000 && String(a.kategori).toLowerCase() === 'transport';
-    logAman((pas ? '✅' : '⚠️') + ' urai transaksi · ' + ms + ' ms · "' + uji + '" → ' +
-      JSON.stringify({ intent: a.intent, nominal: a.nominal, kategori: a.kategori }) + (pas ? '' : ' (kurang tepat; harapan keluar/50000/transport)'));
-  } else {
-    logAman('❌ urai transaksi GAGAL · ' + ms + ' ms → ' + diagnosaGemini(key, model, 'urai', !lempar).teks);
+  // 1) Urai transaksi — beberapa kalimat beragam, persis jalur bot: geminiParse lalu normalisasiKategori
+  //    (kamus melengkapi bila AI tak mengisi kategori). Ditampilkan kategori dari AI & kategori AKHIR yg dicatat.
+  var ok = 0, aiIsi = 0, total = 0, jml = 0;
+  for (var i = 0; i < UJI_GEMINI.length; i++) {
+    var u = UJI_GEMINI[i], a = null, lempar = false, t0 = Date.now();
+    try { a = geminiParse(u[0]); } catch (e) { lempar = true; laporLempar('urai transaksi', e); }
+    var ms = Date.now() - t0;
+    if (!a) {
+      logAman('❌ urai "' + u[0] + '" GAGAL · ' + ms + ' ms → ' + diagnosaGemini(key, model, 'urai', !lempar).teks);
+      logAman('   (uji urai dihentikan agar kuota tak terbuang)');
+      break;
+    }
+    jml++; total += ms;
+    var katAI = String(a.kategori || '').toLowerCase();
+    var akhir = (a.intent === 'keluar' || a.intent === 'masuk')
+      ? normalisasiKategori(a.kategori, a.intent, (a.keterangan || '') + ' ' + u[0]) : '-';
+    var aiBenar = katAI === u[3];
+    if (aiBenar) aiIsi++;
+    var pas = a.intent === u[1] && Number(a.nominal) === u[2] && akhir === u[3];
+    if (pas) ok++;
+    logAman((pas ? '✅ ' : '⚠️ ') + ms + ' ms · "' + u[0] + '" → ' + a.intent + ' · ' + (a.nominal || '?') +
+      ' · AI: ' + (katAI || '(kosong)') + ' · dicatat: ' + akhir + (aiBenar ? '' : (akhir === u[3] ? ' ← dibantu kamus' : ' (harapan ' + u[3] + ')')));
+  }
+  if (jml) {
+    logAman('Ringkasan catat: ' + ok + '/' + jml + ' tercatat benar · AI mengisi kategori tepat sendiri ' + aiIsi + '/' + jml +
+      ' · rata-rata ' + Math.round(total / jml) + ' ms/pesan.');
   }
 
-  // 2) Obrolan bebas (geminiChat). chatId uji agar riwayat obrolan Anda tidak tercampur.
-  var c = null; lempar = false; t0 = Date.now();
-  try { c = geminiChat('Jawab satu kalimat singkat: kamu siapa?', 'uji-testGemini'); } catch (e2) { lempar = true; laporLempar('obrolan', e2); }
-  ms = Date.now() - t0;
-  logAman(c ? '✅ obrolan · ' + ms + ' ms · "' + String(c).replace(/\s+/g, ' ').slice(0, 120) + '"'
-            : '❌ obrolan GAGAL · ' + ms + ' ms → ' + diagnosaGemini(key, model, 'obrolan', !lempar).teks);
+  // 2) Obrolan bebas (geminiChat). chatId baru tiap uji agar riwayat lama tak memengaruhi jawaban.
+  var c = null, lemparC = false, tc = Date.now();
+  try { c = geminiChat('Kamu siapa dan bisa bantu apa saja? Jawab 1–2 kalimat.', 'uji-' + Date.now()); } catch (e2) { lemparC = true; laporLempar('obrolan', e2); }
+  var msC = Date.now() - tc;
+  logAman(c ? '✅ obrolan · ' + msC + ' ms · "' + String(c).replace(/\s+/g, ' ').slice(0, 160) + '"'
+            : '❌ obrolan GAGAL · ' + msC + ' ms → ' + diagnosaGemini(key, mObrol, 'obrolan', !lemparC).teks);
 
   // 3) Model foto: pastikan modelnya ada & menjawab (uji baca foto asli: kirim foto struk ke bot).
   if (visi !== model) {
@@ -299,7 +326,7 @@ function diagnosaGemini(key, model, jenis, setelahGagal) {
   if (jenis === 'urai') {
     payload = { systemInstruction: { parts: [{ text: parseSystemPrompt() }] },
       contents: [{ parts: [{ text: 'tadi isi bensinnya 50rb di spbu' }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: ACTION_SCHEMA } };
+      generationConfig: { responseMimeType: 'application/json', responseSchema: actionSchemaDinamis() } };
   } else if (jenis === 'obrolan') {
     payload = { contents: [{ role: 'user', parts: [{ text: 'Jawab satu kalimat singkat: kamu siapa?' }] }],
       generationConfig: { maxOutputTokens: 2048 } };
