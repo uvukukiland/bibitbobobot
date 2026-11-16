@@ -36,6 +36,7 @@ Kalau semua oke → tidak ada yang perlu disentuh.
 | **Telegram token** | Bot diam total | Jangan revoke token. Kalau terlanjur: buat token baru di @BotFather → update Script Property `BOT_TOKEN` → jalankan `setWebhook`. |
 | **Relay (val.town)** | Bot balas sekali lalu mati / webhook error | Titik paling rapuh. Cek val.town masih hidup. Solusi tahan lama: pindah ke **Cloudflare Worker** (panduan di `README.md`). |
 | **Gemini (foto)** | Baca foto gagal, sisanya normal | Cek `GEMINI_API_KEY` masih valid di Google AI Studio. |
+| **AI cadangan (Groq / OpenRouter)** | Teks & obrolan tetap jalan walau Gemini limit | Opsional. Isi `GROQ_API_KEY` / `OPENROUTER_API_KEY`, lalu Run `testAIProviders`. `/status` → bagian "Otak AI" menampilkan yang aktif. |
 | **Dropbox** | `/dropbox` error / "missing_scope" | Refresh token **tidak expire**. Kalau bermasalah, jalankan ulang `dropboxExchangeCode` (lihat `README.md` bagian Dropbox). |
 
 > **Refresh token Dropbox tidak kadaluarsa** selama app Dropbox tidak dihapus. Token Telegram & Gemini juga permanen sampai Anda cabut sendiri.

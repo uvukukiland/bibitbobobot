@@ -153,8 +153,9 @@ function tebakAksiKeuangan(text) {
  * & kegagalan jaringan. Kembalikan body JSON terurai atau null. TIDAK PERNAH melempar.
  * Ini kunci agar bot tidak "diam" saat Gemini sedang ramai (penyebab umum AI tak merespons).
  */
-function geminiFetchRetry(url, payload) {
+function geminiFetchRetry(url, payload, headers) {
   var opt = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
+  if (headers) opt.headers = headers;
   var delay = 700;
   for (var attempt = 1; attempt <= 3; attempt++) {
     var code = 0, text = '';
@@ -178,14 +179,10 @@ function geminiFetchRetry(url, payload) {
   return null;
 }
 
-/** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
-function geminiParse(text) {
-  var apiKey = cfg('GEMINI_API_KEY');
-  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+/** System prompt pengurai aksi (dipakai Gemini & provider cadangan). */
+function parseSystemPrompt() {
   var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-
-  var sys = [
+  return [
     'Kamu pengurai untuk asisten keuangan & tugas pribadi berbahasa Indonesia.',
     'Ubah pesan pengguna menjadi SATU aksi terstruktur sesuai skema.',
     'intent: "keluar"=pengeluaran uang, "masuk"=pemasukan uang, "tugas"=hal yang harus dilakukan, "catat"=catatan bebas, "cari"=mencari berkas/file di Drive, "rekap"=minta ringkasan/laporan keuangan, "selesai"=menandai tugas sudah selesai, "hapus"=menghapus data, "daftar"=minta lihat daftar tugas, "unknown"=tidak yakin.',
@@ -208,6 +205,14 @@ function geminiParse(text) {
     'edit: untuk MEMPERBAIKI entri yang salah. target = "terakhir" (transaksi keuangan terakhir), "tugas" (isi id), atau "catatan" (catatan terakhir). field = yang diubah; nilai = nilai baru. Untuk keuangan field salah satu: nominal|kategori|keterangan|tipe|tanggal (jika nominal, nilai = angka rupiah dinormalkan, mis "30rb"->"30000"). Untuk tugas field: teks|tenggat|status. Untuk catatan: cukup nilai = teks baru. Contoh "ubah nominal terakhir jadi 30rb" -> intent edit, target "terakhir", field "nominal", nilai "30000"; "ganti kategori transaksi terakhir ke transport" -> field "kategori", nilai "transport".',
     'Pakai "unknown" hanya bila benar-benar tidak ada intent yang cocok.'
   ].join('\n');
+}
+
+/** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
+function geminiParse(text) {
+  var apiKey = cfg('GEMINI_API_KEY');
+  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
+  var sys = parseSystemPrompt();
 
   var payload = {
     systemInstruction: { parts: [{ text: sys }] },
@@ -399,7 +404,7 @@ function handleNatural(text, chatId) {
 
   var a = null;
   sendTyping(chatId); // beri tanda "sedang mengetik…" selama AI berpikir
-  try { a = geminiParse(text); }
+  try { a = aiParse(text); } // Gemini → Groq → OpenRouter
   catch (e) { logEvent('ERROR', 'gemini_call_threw', String(e)); sendMessage(chatId, '⚠️ AI sedang sibuk/limit. Coba lagi sebentar, atau pakai perintah /help.'); return; }
 
   if (!a || a.intent === 'unknown') {
@@ -408,7 +413,7 @@ function handleNatural(text, chatId) {
     if (fb) { setPending(chatId, fb); askConfirm(chatId, confirmText(fb)); return; }
     // Bukan pola keuangan/tugas → layani sebagai obrolan AI biasa.
     sendTyping(chatId);
-    var jawab = geminiChat(text, chatId);
+    var jawab = aiChat(text, chatId); // Gemini → Groq → OpenRouter
     if (jawab) { sendMessage(chatId, jawab); return; }
     sendMessage(chatId, [
       '🤔 Maaf, AI sedang sibuk. Contoh yang bisa saya proses:',

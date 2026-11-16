@@ -279,6 +279,8 @@ function cmdStatus(chatId) {
   ['TELEGRAM_BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SPREADSHEET_ID', 'GEMINI_API_KEY'].forEach(function (k) {
     out.push((cfgOptional(k, '') ? '✅' : '❌') + ' ' + k);
   });
+  out.push('', '<b>Otak AI</b> <i>(urutan cadangan)</i>');
+  aiProvidersStatus().forEach(function (l) { out.push(htmlEsc(l)); });
   out.push('', '<b>Trigger</b>');
   var trigs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
   ['reminderTick', 'resetJadwalHarian', 'sendRingkasanHarian', 'sendRingkasanMingguan', 'refreshDashboard', 'arsipKeuangan'].forEach(function (fn) {
