@@ -10,7 +10,7 @@ var ACTION_SCHEMA = {
   properties: {
     intent: { type: 'string', enum: ['keluar', 'masuk', 'tugas', 'catat', 'cari', 'rekap', 'selesai', 'hapus', 'daftar', 'edit', 'acara', 'unknown'] },
     nominal: { type: 'integer', description: 'Jumlah rupiah bulat, mis. "50rb" -> 50000.' },
-    kategori: { type: 'string', description: 'WAJIB diisi bila intent keluar/masuk: nama kategori PERSIS dari daftar yang diizinkan (hindari "lainnya").' },
+    kategori: { type: 'string', description: 'Intent keluar/masuk: nama kategori PERSIS dari daftar yang PALING cocok (hindari "lainnya"). Intent lain: isi "lainnya".' },
     keterangan: { type: 'string', description: 'Keterangan singkat transaksi, mis. nama barang/tempat.' },
     teks: { type: 'string' },
     jatuh_tempo: { type: 'string' },
@@ -23,7 +23,8 @@ var ACTION_SCHEMA = {
     nilai: { type: 'string' },
     jam: { type: 'string' }
   },
-  required: ['intent']
+  // kategori WAJIB: flash-lite terbukti melewatkan field opsional (uji 0/6) walau deskripsi bilang wajib.
+  required: ['intent', 'kategori']
 };
 
 /**
