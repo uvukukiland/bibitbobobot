@@ -106,7 +106,7 @@ Bot ini berjalan di **Google Apps Script** (gratis, tanpa server). Ringkasnya:
 | Runtime | Google Apps Script (V8) |
 | Antarmuka | Telegram Bot API (webhook) |
 | Database | Google Sheets |
-| AI | Google Gemini (`gemini-2.5-flash`, tier gratis) |
+| AI | Google Gemini (`gemini-3.5-flash-lite`, tier gratis) + cadangan Groq/OpenRouter |
 | Berkas | Google Drive |
 | Penjadwalan | Apps Script time-based triggers |
 

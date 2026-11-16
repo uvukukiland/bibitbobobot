@@ -170,7 +170,7 @@ Project Settings → Script Properties → tambah:
 | Property | Value |
 |---|---|
 | `GEMINI_API_KEY` | (API key Gemini Anda) |
-| `GEMINI_MODEL` | `gemini-2.5-flash` *(opsional; default ini)* |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` *(opsional; default ini)* |
 
 ### FAI.3 — Tambah/perbarui kode
 Tambah file **`AI.gs`**; perbarui `Router.gs` (jalur natural + `/ya` `/tidak` + helpText). **Ctrl+S.**

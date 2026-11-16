@@ -232,7 +232,7 @@ function testGemini() {
     logAman('⚠️ GEMINI_API_KEY mengandung spasi/enter di awal/akhir — bot memakai nilai apa adanya sehingga bisa DITOLAK. ' +
       'Hapus spasi/enter itu di Script Properties.');
   }
-  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
+  var model = cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT);
   var visi = cfgOptional('GEMINI_VISION_MODEL', model);
   logAman('Gemini · model teks: ' + model + ' · model foto: ' + visi);
 
@@ -289,7 +289,7 @@ function laporLempar(jalur, e) {
 
 /**
  * Satu panggilan Gemini TANPA retry, dgn konfigurasi yang SAMA spt jalur bot, untuk membaca penyebab asli.
- * jenis: 'urai' (systemInstruction + skema JSON), 'obrolan' (maxOutputTokens 800), 'dasar' (minimal).
+ * jenis: 'urai' (systemInstruction + skema JSON), 'obrolan' (maxOutputTokens 2048), 'dasar' (minimal).
  * setelahGagal: true bila jalur bot barusan gagal (mempengaruhi kalimat saat ternyata sehat).
  * Kembalikan { kode, sehat, teks }.
  */
@@ -299,10 +299,10 @@ function diagnosaGemini(key, model, jenis, setelahGagal) {
   if (jenis === 'urai') {
     payload = { systemInstruction: { parts: [{ text: parseSystemPrompt() }] },
       contents: [{ parts: [{ text: 'tadi isi bensinnya 50rb di spbu' }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: ACTION_SCHEMA, temperature: 0 } };
+      generationConfig: { responseMimeType: 'application/json', responseSchema: ACTION_SCHEMA } };
   } else if (jenis === 'obrolan') {
     payload = { contents: [{ role: 'user', parts: [{ text: 'Jawab satu kalimat singkat: kamu siapa?' }] }],
-      generationConfig: { temperature: 0.6, maxOutputTokens: 800 } };
+      generationConfig: { maxOutputTokens: 2048 } };
   } else {
     payload = { contents: [{ parts: [{ text: 'Balas satu kata: OK' }] }] };
   }
@@ -339,7 +339,7 @@ function analisaBalasan200(body, setelahGagal) {
   }
   if (fr === 'MAX_TOKENS') {
     return { kode: 200, sehat: false, teks: 'HTTP 200 tapi jawaban KOSONG: token habis (finishReason MAX_TOKENS' +
-      (pikir ? ', ' + pikir + ' token dipakai "berpikir"' : '') + ') — ganti GEMINI_MODEL ke model ringan, mis. gemini-2.5-flash.' };
+      (pikir ? ', ' + pikir + ' token dipakai "berpikir"' : '') + ') — ganti GEMINI_MODEL ke model yg berpikir minimal, mis. gemini-3.5-flash-lite.' };
   }
   return { kode: 200, sehat: false, teks: 'HTTP 200 tapi jawaban kosong (finishReason ' + (fr || 'tidak ada') + ').' };
 }

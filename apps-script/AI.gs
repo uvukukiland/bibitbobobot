@@ -210,10 +210,20 @@ function parseSystemPrompt() {
   ].join('\n');
 }
 
+/**
+ * Model Gemini bawaan (bisa diganti lewat Script Property GEMINI_MODEL / GEMINI_VISION_MODEL).
+ * gemini-3.5-flash-lite (cek docs Nov 2026): tier gratis, berpikir "minimal" (tercepat), mendukung
+ * output terstruktur & gambar; pengganti resmi gemini-2.5-flash (usang, ditutup utk pengguna baru,
+ * dialihkan otomatis mulai 1 Des 2026).
+ * Catatan API Gemini 3.x: `temperature`/`top_p`/`top_k` usang (kini diabaikan, kelak HTTP 400) — jangan dikirim;
+ * token "berpikir" ikut dihitung dalam maxOutputTokens — beri ruang longgar agar jawaban tak terpotong.
+ */
+var GEMINI_MODEL_DEFAULT = 'gemini-3.5-flash-lite';
+
 /** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
 function geminiParse(text) {
   var apiKey = cfg('GEMINI_API_KEY');
-  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
+  var model = cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT);
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
   var sys = parseSystemPrompt();
 
@@ -222,8 +232,7 @@ function geminiParse(text) {
     contents: [{ parts: [{ text: text + petunjukKamus(text) }] }],
     generationConfig: {
       responseMimeType: 'application/json',
-      responseSchema: ACTION_SCHEMA,
-      temperature: 0
+      responseSchema: ACTION_SCHEMA
     }
   };
 
@@ -259,7 +268,7 @@ function chatHistorySave(chatId, userText, modelText) {
  */
 function geminiChat(text, chatId) {
   var apiKey = cfg('GEMINI_API_KEY');
-  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
+  var model = cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT);
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey;
 
   var sys = [
@@ -274,7 +283,7 @@ function geminiChat(text, chatId) {
   var payload = {
     systemInstruction: { parts: [{ text: sys }] },
     contents: contents,
-    generationConfig: { temperature: 0.6, maxOutputTokens: 800 }
+    generationConfig: { maxOutputTokens: 2048 } // longgar: token "berpikir" ikut dihitung
   };
 
   var body = geminiFetchRetry(url, payload);

@@ -81,15 +81,16 @@ function handlePhoto(msg, fileId, chatId) {
     (url ? '\n🗂️ <a href="' + htmlEsc(url) + '">Arsip foto</a>' : ''));
 }
 
-/** Model untuk membaca gambar (bisa beda dari model teks via GEMINI_VISION_MODEL, mis. gemini-2.5-pro). */
+/** Model untuk membaca gambar (bisa beda dari model teks via GEMINI_VISION_MODEL, mis. gemini-3.8-flash). */
 function geminiVisionModel() {
-  return cfgOptional('GEMINI_VISION_MODEL', cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash'));
+  return cfgOptional('GEMINI_VISION_MODEL', cfgOptional('GEMINI_MODEL', GEMINI_MODEL_DEFAULT));
 }
 
 /**
  * Baca gambar via Gemini — dua lapis agar andal:
  *  Pass 1: ekstraksi terstruktur ketat (suhu 0).
- *  Pass 2 "salvage": bila pass 1 gagal, ulang dengan instruksi lebih agresif & suhu sedikit naik.
+ *  Pass 2 "salvage": bila pass 1 gagal, ulang dengan instruksi lebih teliti (MODE TELITI).
+ *  (Tanpa temperature: parameter itu usang di Gemini 3.x — diabaikan kini, kelak ditolak HTTP 400.)
  * Mengembalikan objek aksi {jenis,intent,...} atau null.
  */
 function geminiVision(blob, hint) {
@@ -117,7 +118,7 @@ function visionUsable(a) {
   return true;
 }
 
-/** Satu panggilan Gemini Vision. salvage=true → prompt lebih agresif + suhu naik. */
+/** Satu panggilan Gemini Vision. salvage=true → prompt lebih teliti (MODE TELITI). */
 function geminiVisionCall(b64, mime, hint, salvage) {
   var apiKey = cfg('GEMINI_API_KEY');
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + geminiVisionModel() + ':generateContent?key=' + apiKey;
@@ -151,8 +152,7 @@ function geminiVisionCall(b64, mime, hint, salvage) {
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: PHOTO_SCHEMA,
-      temperature: salvage ? 0.25 : 0,
-      maxOutputTokens: 1024
+      maxOutputTokens: 4096 // longgar: token "berpikir" ikut dihitung (bila memakai model yg berpikir)
     }
   };
 
