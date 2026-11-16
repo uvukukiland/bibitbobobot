@@ -217,6 +217,98 @@ function daftarModelTersedia(p) {
   }
 }
 
+/**
+ * Jalankan dari EDITOR (buka AIProviders.gs, pilih testGemini, ▶ Jalankan) untuk menguji GEMINI —
+ * otak utama bot — lewat jalur yang sama dgn pesan sungguhan: (1) mengurai transaksi, (2) obrolan,
+ * (3) model foto. Bila gagal, tampilkan kode HTTP + pesan asli Google (& daftar model bila 404).
+ */
+function testGemini() {
+  var key = String(cfgOptional('GEMINI_API_KEY', '')).trim();
+  if (!key) { Logger.log('❌ GEMINI_API_KEY belum diisi di Script Properties (⚙️ Setelan project).'); return; }
+  if (String(cfgOptional('GEMINI_API_KEY', '')) !== key) {
+    Logger.log('⚠️ GEMINI_API_KEY mengandung spasi/enter di awal/akhir — bot memakai nilai apa adanya sehingga bisa DITOLAK. ' +
+      'Buka Script Properties, hapus spasi/enter itu, simpan.');
+  }
+  var model = cfgOptional('GEMINI_MODEL', 'gemini-2.5-flash');
+  var visi = cfgOptional('GEMINI_VISION_MODEL', model);
+  Logger.log('Gemini · model teks: ' + model + ' · model foto: ' + visi);
+  var diag = null; // diagnosis dihitung sekali & dipakai ulang (hemat kuota)
+  function diagnosa() { return diag || (diag = diagnosaGemini(key, model)); }
+
+  // 1) Urai transaksi — persis jalur bot (geminiParse: prompt kategori + kamus + retry).
+  var uji = 'tadi isi bensinnya 50rb di spbu', a = null, t0 = Date.now();
+  try { a = geminiParse(uji); } catch (e) { Logger.log('❌ urai transaksi melempar error: ' + e); }
+  var ms = Date.now() - t0;
+  if (a) {
+    var pas = a.intent === 'keluar' && Number(a.nominal) === 50000 && String(a.kategori).toLowerCase() === 'transport';
+    Logger.log((pas ? '✅' : '⚠️') + ' urai transaksi · ' + ms + ' ms · "' + uji + '" → ' +
+      JSON.stringify({ intent: a.intent, nominal: a.nominal, kategori: a.kategori }) + (pas ? '' : ' (kurang tepat; harapan keluar/50000/transport)'));
+  } else {
+    Logger.log('❌ urai transaksi GAGAL · ' + ms + ' ms → ' + diagnosa());
+  }
+
+  // 2) Obrolan bebas (geminiChat). Pakai chatId uji agar riwayat obrolan Anda tidak tercampur.
+  var c = null; t0 = Date.now();
+  try { c = geminiChat('Jawab satu kalimat singkat: kamu siapa?', 'uji-testGemini'); } catch (e2) { Logger.log('❌ obrolan melempar error: ' + e2); }
+  ms = Date.now() - t0;
+  Logger.log(c ? '✅ obrolan · ' + ms + ' ms · "' + String(c).replace(/\s+/g, ' ').slice(0, 120) + '"'
+               : '❌ obrolan GAGAL · ' + ms + ' ms → ' + diagnosa());
+
+  // 3) Model foto: cukup pastikan modelnya ada & bisa dipanggil (uji baca foto asli: kirim foto ke bot).
+  if (visi !== model) {
+    var d = diagnosaGemini(key, visi);
+    Logger.log((/^HTTP 200/.test(d) ? '✅' : '❌') + ' model foto ' + visi + ' → ' + d);
+  } else {
+    Logger.log('ℹ️ model foto = model teks (' + model + '); baca foto asli diuji dgn mengirim foto struk ke bot.');
+  }
+  Logger.log('Petunjuk: 400 "API key not valid" = GEMINI_API_KEY salah · 403 = key diblokir/API belum aktif · ' +
+    '404 = nama model salah (lihat daftar) · 429 = kuota gratis habis/limit (bot otomatis pakai Groq/OpenRouter) · 503 = server Google sibuk.');
+}
+
+/** Satu panggilan Gemini kecil TANPA retry untuk membaca pesan error asli. 'HTTP 200 …' bila sehat. */
+function diagnosaGemini(key, model) {
+  var base = 'https://generativelanguage.googleapis.com/v1beta/models/';
+  try {
+    var res = UrlFetchApp.fetch(base + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(key), {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({ contents: [{ parts: [{ text: 'Balas satu kata: OK' }] }] })
+    });
+    var code = res.getResponseCode();
+    if (code === 200) return 'HTTP 200 (sehat — kegagalan tadi kemungkinan sibuk/limit sesaat)';
+    var pesan = ringkasErrorAI(res.getContentText());
+    var hasil = 'HTTP ' + code + ': ' + pesan;
+    if (code === 404) hasil += '\n   ↳ model Gemini yang tersedia utk key Anda: ' + daftarModelGemini(key) +
+      '\n   ↳ isi salah satu ke Script Property GEMINI_MODEL.';
+    return hasil;
+  } catch (e) {
+    return 'jaringan: ' + String(e).slice(0, 160);
+  }
+}
+
+/** Daftar model Gemini yang bisa generateContent utk key ini. */
+function daftarModelGemini(key) {
+  try {
+    var res = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key),
+      { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return '(gagal membaca daftar: HTTP ' + res.getResponseCode() + ')';
+    var ids = (JSON.parse(res.getContentText()).models || [])
+      .filter(function (m) { return (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0 && /gemini/.test(m.name); })
+      .map(function (m) { return String(m.name).replace(/^models\//, ''); })
+      .filter(function (n) { return !/tts|image-generation|embedding|live|audio/i.test(n); });
+    return ids.length ? ids.slice(0, 15).join(', ') + (ids.length > 15 ? ' …' : '') : '(kosong)';
+  } catch (e) {
+    return '(gagal membaca daftar: ' + String(e).slice(0, 100) + ')';
+  }
+}
+
+/** Uji SEMUA otak AI sekaligus: Gemini (utama) lalu cadangan Groq/OpenRouter. */
+function testSemuaAI() {
+  Logger.log('===== GEMINI (utama) =====');
+  testGemini();
+  Logger.log('===== CADANGAN (Groq / OpenRouter) =====');
+  testAIProviders();
+}
+
 /** Ringkasan provider AI yang aktif (untuk /status). */
 function aiProvidersStatus() {
   var out = ['✅ gemini (utama)'];
