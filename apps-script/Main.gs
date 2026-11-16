@@ -23,7 +23,7 @@ function doPost(e) {
       if (String(cqChat) === String(cfg('ALLOWED_CHAT_ID'))) {
         try { handleCallback(cq, cqChat); } catch (errCb) {
           try { logEvent('ERROR', 'callback_error', sensorAman(String(errCb))); } catch (e1) {}
-          try { sendMessage(cqChat, pesanKendala(errCb)); } catch (e2) {}
+          try { sendMessage(cqChat, pesanKendala(errCb), { html: true }); } catch (e2) {}
         }
       } else answerCallback(cq.id);
       return ok();
@@ -48,7 +48,7 @@ function doPost(e) {
       if (msg.text) { route(msg.text.trim(), chatId); return ok(); }
     } catch (err) {
       try { logEvent('ERROR', 'handler_error', sensorAman(String(err) + (err && err.stack ? ' | ' + String(err.stack).slice(0, 300) : ''))); } catch (e1) {}
-      try { sendMessage(chatId, pesanKendala(err)); } catch (e2) {}
+      try { sendMessage(chatId, pesanKendala(err), { html: true }); } catch (e2) {}
     }
     return ok();
   } catch (err) {
@@ -95,6 +95,17 @@ function sensorAman(s) {
   return t;
 }
 
+/** Escape HTML Telegram (mandiri — tak bergantung Telegram.gs). */
+function escHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+/**
+ * Nama berkas dibungkus <code>: tanpa itu Telegram menjadikan "Sheets.gs" TAUTAN ke situs luar
+ * (".gs" adalah akhiran domain internet).
+ */
+function daftarBerkasHtml(arr) {
+  return arr.map(function (n) { return '<code>' + escHtml(n) + '</code>'; }).join(', ');
+}
+
 /** Berkas .gs yang belum ada / masih versi lama di project (daftar nama berkas). */
 function berkasKurang() {
   var g = (typeof globalThis !== 'undefined') ? globalThis : this;
@@ -104,15 +115,15 @@ function berkasKurang() {
 
 /**
  * Pesan untuk pengguna saat handler gagal: sebut detail error (rahasia disensor) + petunjuk
- * bila penyebabnya berkas .gs yang belum lengkap. Teks polos (tanpa HTML).
+ * bila penyebabnya berkas .gs yang belum lengkap. Format HTML — kirim dgn { html: true }.
  */
 function pesanKendala(err) {
   var m = String((err && err.message) || err || 'tanpa keterangan');
-  var out = '⚠️ Maaf, ada kendala saat memproses pesan Anda.\n🔎 Detail: ' + sensorAman(m).slice(0, 200);
+  var out = '⚠️ Maaf, ada kendala saat memproses pesan Anda.\n🔎 Detail: ' + escHtml(sensorAman(m).slice(0, 200));
   var kurang = [];
   try { kurang = berkasKurang(); } catch (e) {}
   if (kurang.length) {
-    out += '\n\n🔧 Berkas di project Apps Script belum ada / masih versi lama: ' + kurang.join(', ') + '.\n' +
+    out += '\n\n🔧 Berkas di project Apps Script belum ada / masih versi lama: ' + daftarBerkasHtml(kurang) + '.\n' +
       'Salin dari GitHub (bila belum ada: klik + → Skrip, beri nama persis sama), simpan, lalu Deploy → New version.';
   } else if (/is not defined|is not a function/.test(m)) {
     out += '\n\n🔧 Ada fungsi yang tidak ditemukan — kemungkinan salah satu berkas .gs belum diperbarui. ' +

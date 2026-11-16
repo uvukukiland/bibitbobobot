@@ -281,7 +281,8 @@ function cmdStatus(chatId) {
   });
   var kurang = (typeof berkasKurang === 'function') ? berkasKurang() : ['Main.gs']; // Main.gs lama = tanpa pemeriksa
   out.push('', '<b>Berkas kode</b>', kurang.length
-    ? '❌ belum ada / versi lama: ' + htmlEsc(kurang.join(', ')) + '\n<i>Salin dari GitHub, simpan, lalu Deploy → New version.</i>'
+    ? '❌ belum ada / versi lama: ' + kurang.map(function (n) { return '<code>' + htmlEsc(n) + '</code>'; }).join(', ') + // <code>: cegah "Sheets.gs" jadi tautan situs luar
+      '\n<i>Salin dari GitHub, simpan, lalu Deploy → New version.</i>'
     : '✅ ' + PENANDA_BERKAS.length + ' berkas lengkap & terbaru');
   out.push('', '<b>Otak AI</b> <i>(urutan cadangan)</i>');
   aiProvidersStatus().forEach(function (l) { out.push(htmlEsc(l)); });
