@@ -15,13 +15,22 @@
  * Semua provider ini memakai format OpenAI-compatible (chat/completions).
  */
 
-/** Daftar provider OpenAI-compatible yang AKTIF (key terisi), urut prioritas. */
 /**
  * Rantai model gratis OpenRouter (dicek Nov 2026): Gemma 4 31B (kuat bahasa Indonesia, mode JSON)
  * -> Gemma 4 26B-A4B (lebih ringan/cepat) -> openrouter/free (router otomatis ke model gratis yang tersedia).
  */
 var OPENROUTER_DEFAULT = 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,openrouter/free';
 
+/**
+ * Rantai model Groq (semua "Production" di docs Groq, Nov 2026). Akses model bisa berbeda per akun —
+ * yang tak tersedia (404) otomatis dilewati; testAIProviders menampilkan model yang BISA dipakai akun Anda.
+ */
+var GROQ_DEFAULT = 'llama-3.3-70b-versatile,openai/gpt-oss-120b,llama-3.1-8b-instant';
+
+/** Pesan error terakhir dari provider cadangan (dibaca testAIProviders). */
+var AI_ERR_TERAKHIR = '';
+
+/** Daftar provider OpenAI-compatible yang AKTIF (key terisi), urut prioritas. */
 function openaiProviders() {
   var list = [];
   function tambah(nama, url, key, models) {
@@ -32,7 +41,7 @@ function openaiProviders() {
   }
   // .trim(): spasi/enter yang ikut tertempel di Script Properties membuat key ditolak (HTTP 401).
   var groq = String(cfgOptional('GROQ_API_KEY', '')).trim();
-  if (groq) tambah('groq', 'https://api.groq.com/openai/v1/chat/completions', groq, cfgOptional('GROQ_MODEL', 'llama-3.3-70b-versatile'));
+  if (groq) tambah('groq', 'https://api.groq.com/openai/v1/chat/completions', groq, cfgOptional('GROQ_MODEL', GROQ_DEFAULT));
   var or = String(cfgOptional('OPENROUTER_API_KEY', '')).trim();
   if (or) tambah('openrouter', 'https://openrouter.ai/api/v1/chat/completions', or, cfgOptional('OPENROUTER_MODEL', OPENROUTER_DEFAULT));
   return list;
@@ -43,9 +52,58 @@ function openaiChatCall(p, messages, opts) {
   var payload = { model: p.model, messages: messages, temperature: (opts && opts.temperature != null) ? opts.temperature : 0.4 };
   if (opts && opts.json) payload.response_format = { type: 'json_object' };
   if (opts && opts.maxTokens) payload.max_tokens = opts.maxTokens;
-  var body = geminiFetchRetry(p.url, payload, { Authorization: 'Bearer ' + p.key });
-  if (!body || !body.choices || !body.choices[0] || !body.choices[0].message) return null;
-  return String(body.choices[0].message.content || '').trim() || null;
+  var body = openaiFetch(p, payload);
+  if (!body || !body.choices || !body.choices[0] || !body.choices[0].message) {
+    if (body && !AI_ERR_TERAKHIR) AI_ERR_TERAKHIR = 'balasan tanpa isi';
+    return null;
+  }
+  var isi = String(body.choices[0].message.content || '').trim();
+  if (!isi) AI_ERR_TERAKHIR = 'balasan kosong';
+  return isi || null;
+}
+
+/**
+ * POST ke provider cadangan. BERBEDA dari Gemini: saat kena limit (429) JANGAN mencoba ulang —
+ * langsung kembali agar rantai pindah ke model berikutnya (hemat kuota harian & bot tak menunggu lama).
+ * Hanya error server sesaat (500/502/503) & jaringan yang dicoba ulang SEKALI.
+ * Pesan error disimpan di AI_ERR_TERAKHIR. Tidak pernah melempar.
+ */
+function openaiFetch(p, payload) {
+  var opt = { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + p.key }, payload: JSON.stringify(payload) };
+  AI_ERR_TERAKHIR = '';
+  for (var attempt = 1; attempt <= 2; attempt++) {
+    var code = 0, text = '';
+    try {
+      var res = UrlFetchApp.fetch(p.url, opt);
+      code = res.getResponseCode();
+      text = res.getContentText();
+    } catch (e) {
+      AI_ERR_TERAKHIR = 'jaringan: ' + String(e).slice(0, 160);
+      if (attempt < 2) { Utilities.sleep(600); continue; }
+      return null;
+    }
+    if (code === 200) { try { return JSON.parse(text); } catch (e2) { AI_ERR_TERAKHIR = 'balasan bukan JSON'; return null; } }
+    AI_ERR_TERAKHIR = 'HTTP ' + code + ': ' + ringkasErrorAI(text);
+    if ((code === 500 || code === 502 || code === 503) && attempt < 2) { Utilities.sleep(600); continue; }
+    logEvent('WARN', 'ai_' + p.name + '_gagal', p.model + ' · ' + AI_ERR_TERAKHIR);
+    return null;
+  }
+  return null;
+}
+
+/** Ringkas pesan error JSON dari provider (termasuk detail upstream OpenRouter bila ada). */
+function ringkasErrorAI(text) {
+  var pesan = text;
+  try {
+    var b = JSON.parse(text);
+    if (b.error) {
+      pesan = b.error.message || JSON.stringify(b.error);
+      var raw = b.error.metadata && (b.error.metadata.raw || b.error.metadata.provider_name);
+      if (raw) pesan += ' [' + String(raw).replace(/\s+/g, ' ').slice(0, 120) + ']';
+    }
+  } catch (e) {}
+  return String(pesan).replace(/\s+/g, ' ').slice(0, 240);
 }
 
 /** Coba tiap provider OpenAI-compatible berurutan; {text,provider} atau null. */
@@ -129,28 +187,33 @@ function testAIProviders() {
     var pas = o && o.intent === 'keluar' && Number(o.nominal) === 50000 && String(o.kategori).toLowerCase() === 'transport';
     Logger.log((o ? (pas ? '✅ ' : '⚠️ ') : '❌ ') + p.name + ' · ' + p.model + ' · ' + ms + ' ms · ' +
       (o ? JSON.stringify({ intent: o.intent, nominal: o.nominal, kategori: o.kategori }) + (pas ? '' : ' (jawaban kurang tepat)')
-         : 'GAGAL → ' + diagnosaProvider(p, sys, uji)));
+         : 'GAGAL → ' + (AI_ERR_TERAKHIR || 'tanpa keterangan')));
+    if (!o && /^HTTP 404/.test(AI_ERR_TERAKHIR) && !sudahDaftar[p.name]) {
+      sudahDaftar[p.name] = true;
+      Logger.log('   ↳ model yang BISA dipakai akun ' + p.name + ' Anda: ' + daftarModelTersedia(p) +
+        '\n   ↳ isi salah satu (atau beberapa, dipisah koma) ke Script Property ' + p.name.toUpperCase() + '_MODEL.');
+    }
   });
-  Logger.log('Petunjuk: 401 = API key salah/tidak aktif · 404 = nama model salah/tak tersedia · ' +
-    '429/503 = sedang limit/sibuk (wajar utk model gratis; rantai lanjut ke model berikutnya) · ' +
-    'pesan "data policy" = izinkan free endpoints di openrouter.ai → Settings → Privacy.');
+  Logger.log('Petunjuk: 401 = API key salah/tidak aktif · 404 = model tak tersedia utk akun Anda · ' +
+    '429 = sedang limit (wajar utk model gratis; bot langsung lanjut ke model berikutnya) · ' +
+    'pesan "data policy" = izinkan free endpoints di openrouter.ai → Settings → Privacy. ' +
+    'Cukup SATU ✅ agar cadangan berfungsi.');
 }
+var sudahDaftar = {};
 
-/** Satu panggilan TANPA retry, untuk menampilkan pesan error asli server (dipakai testAIProviders). */
-function diagnosaProvider(p, sys, uji) {
+/** Daftar id model yang dapat diakses key ini (GET /models). OpenRouter: hanya yang gratis. */
+function daftarModelTersedia(p) {
   try {
-    var res = UrlFetchApp.fetch(p.url, {
-      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-      headers: { Authorization: 'Bearer ' + p.key },
-      payload: JSON.stringify({ model: p.model, temperature: 0, max_tokens: 300, response_format: { type: 'json_object' },
-        messages: [{ role: 'system', content: sys }, { role: 'user', content: uji }] })
+    var res = UrlFetchApp.fetch(p.url.replace('/chat/completions', '/models'), {
+      muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + p.key }
     });
-    var code = res.getResponseCode(), teks = res.getContentText(), pesan = teks;
-    try { var b = JSON.parse(teks); pesan = (b.error && (b.error.message || JSON.stringify(b.error))) || teks; } catch (e) {}
-    if (code === 200) return 'HTTP 200 (berhasil saat dicoba ulang — sebelumnya sedang sibuk/limit)';
-    return 'HTTP ' + code + ': ' + String(pesan).replace(/\s+/g, ' ').slice(0, 220);
+    if (res.getResponseCode() !== 200) return '(gagal membaca daftar: HTTP ' + res.getResponseCode() + ')';
+    var ids = (JSON.parse(res.getContentText()).data || []).map(function (m) { return m.id; })
+      .filter(function (id) { return p.name !== 'openrouter' || /:free$/.test(id) || id === 'openrouter/free'; })
+      .filter(function (id) { return !/whisper|tts|guard|orpheus|embed|lyria|playai/i.test(id); }); // bukan model chat
+    return ids.length ? ids.slice(0, 15).join(', ') + (ids.length > 15 ? ' …' : '') : '(kosong)';
   } catch (e) {
-    return 'jaringan: ' + String(e).slice(0, 160);
+    return '(gagal membaca daftar: ' + String(e).slice(0, 100) + ')';
   }
 }
 
