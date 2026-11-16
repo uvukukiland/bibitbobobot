@@ -6,18 +6,34 @@
  *   GROQ_API_KEY         (https://console.groq.com — gratis, cepat)
  *   OPENROUTER_API_KEY   (https://openrouter.ai — banyak model :free)
  * Model bisa diubah: GROQ_MODEL (default llama-3.3-70b-versatile),
- *   OPENROUTER_MODEL (default meta-llama/llama-3.3-70b-instruct:free).
+ *   OPENROUTER_MODEL (default rantai OPENROUTER_DEFAULT di bawah).
+ * Boleh BEBERAPA model dipisah koma (dicoba berurutan), mis.
+ *   OPENROUTER_MODEL = google/gemma-4-31b-it:free,openrouter/free
+ * Daftar model gratis OpenRouter sering berganti — cek https://openrouter.ai/models?max_price=0
+ * lalu jalankan testAIProviders() dari editor untuk memastikan masih jalan.
  *
  * Semua provider ini memakai format OpenAI-compatible (chat/completions).
  */
 
 /** Daftar provider OpenAI-compatible yang AKTIF (key terisi), urut prioritas. */
+/**
+ * Rantai model gratis OpenRouter (dicek Nov 2026): Gemma 4 31B (kuat bahasa Indonesia, mode JSON)
+ * -> Gemma 4 26B-A4B (lebih ringan/cepat) -> openrouter/free (router otomatis ke model gratis yang tersedia).
+ */
+var OPENROUTER_DEFAULT = 'google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,openrouter/free';
+
 function openaiProviders() {
   var list = [];
+  function tambah(nama, url, key, models) {
+    String(models).split(',').forEach(function (m) {
+      m = m.trim();
+      if (m) list.push({ name: nama, url: url, key: key, model: m });
+    });
+  }
   var groq = cfgOptional('GROQ_API_KEY', '');
-  if (groq) list.push({ name: 'groq', url: 'https://api.groq.com/openai/v1/chat/completions', key: groq, model: cfgOptional('GROQ_MODEL', 'llama-3.3-70b-versatile') });
+  if (groq) tambah('groq', 'https://api.groq.com/openai/v1/chat/completions', groq, cfgOptional('GROQ_MODEL', 'llama-3.3-70b-versatile'));
   var or = cfgOptional('OPENROUTER_API_KEY', '');
-  if (or) list.push({ name: 'openrouter', url: 'https://openrouter.ai/api/v1/chat/completions', key: or, model: cfgOptional('OPENROUTER_MODEL', 'meta-llama/llama-3.3-70b-instruct:free') });
+  if (or) tambah('openrouter', 'https://openrouter.ai/api/v1/chat/completions', or, cfgOptional('OPENROUTER_MODEL', OPENROUTER_DEFAULT));
   return list;
 }
 
@@ -100,11 +116,19 @@ function aiChat(text, chatId) {
 function testAIProviders() {
   var ps = openaiProviders();
   if (!ps.length) { Logger.log('Belum ada provider cadangan. Isi GROQ_API_KEY dan/atau OPENROUTER_API_KEY di Script Properties.'); return; }
+  // Uji dengan kalimat transaksi sungguhan (seperti saat Gemini sibuk) + catat waktu respons.
+  var uji = 'tadi isi bensinnya 50rb di spbu';
+  var sys = parseSystemPrompt() + '\n\nBALAS HANYA satu objek JSON valid, tanpa teks lain & tanpa code-fence. Sertakan "intent" selalu.';
+  Logger.log('Uji: "' + uji + '" (harapan: intent keluar, nominal 50000, kategori transport)');
   ps.forEach(function (p) {
-    var t = null;
-    try { t = openaiChatCall(p, [{ role: 'user', content: 'Balas satu kata saja: OK' }], { temperature: 0, maxTokens: 10 }); }
+    var t = null, mulai = Date.now();
+    try { t = openaiChatCall(p, [{ role: 'system', content: sys }, { role: 'user', content: uji }], { json: true, temperature: 0, maxTokens: 300 }); }
     catch (e) { t = null; Logger.log('❌ ' + p.name + ' error: ' + e); }
-    Logger.log((t ? '✅ ' : '❌ ') + p.name + ' (' + p.model + '): ' + (t || 'gagal — cek API key / nama model; detail di sheet Log'));
+    var ms = Date.now() - mulai, o = t ? extractJson(t) : null;
+    var pas = o && o.intent === 'keluar' && Number(o.nominal) === 50000 && String(o.kategori).toLowerCase() === 'transport';
+    Logger.log((o ? (pas ? '✅ ' : '⚠️ ') : '❌ ') + p.name + ' · ' + p.model + ' · ' + ms + ' ms · ' +
+      (o ? JSON.stringify({ intent: o.intent, nominal: o.nominal, kategori: o.kategori }) + (pas ? '' : ' (jawaban kurang tepat)')
+         : 'gagal — cek API key / nama model / pengaturan privasi OpenRouter; detail di sheet Log'));
   });
 }
 
