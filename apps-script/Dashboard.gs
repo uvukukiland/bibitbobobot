@@ -21,7 +21,8 @@ var MONTH_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 var BULAN_PENDEK = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-var DASH_VERSI = 'DASH_V4';         // penanda tata letak (sel J30, tersembunyi) — naikkan bila tata letak/grafik berubah
+var DASH_VERSI = 'DASH_V5';         // penanda tata letak (sel J30, tersembunyi) — naikkan bila tata letak/grafik berubah
+                                    // V5: tren dalam satuan JUTA (sumbu tak lagi "2,50E+6")
                                     // V4: chartArea eksplisit (label sumbu & legenda donat tak terpotong)
 var DASH_BARIS = 53;
 var DASH = {
@@ -129,7 +130,7 @@ function buildDashboard() {
   sh.getRange('A49:A52').setFontSize(10).setHorizontalAlignment('left');
 
   // --- Data bantu grafik (kolom J–L, disembunyikan) ---
-  sh.getRange('J1:L1').setValues([['Bulan', 'Pemasukan', 'Pengeluaran']]);
+  sh.getRange('J1:L1').setValues([['Bulan', 'Pemasukan (jt)', 'Pengeluaran (jt)']]);
   sh.getRange('J10:K10').setValues([['Kategori', 'Total']]);
   sh.getRangeList(DASH_SEL_TEKS).setNumberFormat('@');
 
@@ -176,7 +177,9 @@ function dashOpsiGrafik() {
     tren: {
       colors: [DASH.hijau, DASH.merah],
       legend: { position: 'bottom', textStyle: { fontSize: 10, color: DASH.muted } },
-      vAxis: { format: 'short', minValue: 0, textStyle: { fontSize: 10, color: DASH.muted }, gridlines: { color: DASH.line } },
+      // TANPA vAxis.format: Sheets mengabaikan/menyalahartikan 'short' (tampil "2,50E+6"). Data ditulis
+      // dalam satuan JUTA (writeDashboardData) sehingga label sumbu pendek: 0 · 2,5 · 5,0.
+      vAxis: { minValue: 0, textStyle: { fontSize: 10, color: DASH.muted }, gridlines: { color: DASH.line } },
       hAxis: { textStyle: { fontSize: 10, color: DASH.ink } },
       backgroundColor: '#FFFFFF',
       chartArea: { left: '15%', top: '6%', width: '81%', height: '68%' },   // kiri 69 px utk label Rp
@@ -226,8 +229,9 @@ function writeDashboardData(sh) {
   sh.getRange('G6').setValue(d.adaArsip ? 'semua tahun · termasuk arsip' : 'akumulasi semua transaksi');
 
   // Grafik tren (J2:L7) & donat (J11:K19). Label bulan dipaksa teks (pulihkan sendiri bila format hilang).
-  sh.getRange('J2:J7').setNumberFormat('@');
-  sh.getRange(2, 10, 6, 3).setValues(d.tren);
+  // Satu panggilan format: bulan = teks, nilai = juta dgn 1–2 desimal (mis. 2,5 / 0,47).
+  sh.getRange('J2:L7').setNumberFormats([0, 1, 2, 3, 4, 5].map(function () { return ['@', '0.0#', '0.0#']; }));
+  sh.getRange(2, 10, 6, 3).setValues(d.tren.map(function (t) { return [t[0], dashJuta(t[1]), dashJuta(t[2])]; }));
   sh.getRange('J11:K19').clearContent();
   var donat = d.donat.length ? d.donat : [['Belum ada pengeluaran', 0]];
   sh.getRange(11, 10, donat.length, 2).setValues(donat);
@@ -426,6 +430,9 @@ function dashInsight(b, now, masuk, keluar, urutKat, terbesar) {
   }
   return out;
 }
+
+/** Rupiah → juta, 2 desimal (2460000 → 2.46) utk grafik tren. */
+function dashJuta(n) { return Math.round((Number(n) || 0) / 10000) / 100; }
 
 /** Bar teks: dashBar(62, 10) -> "██████░░░░". */
 function dashBar(pct, n) {
