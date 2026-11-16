@@ -148,6 +148,36 @@ function tebakAksiKeuangan(text) {
   return { intent: tipeKategori(kat), nominal: nominal, kategori: kat, keterangan: '', sumber: 'bot-ai' };
 }
 
+/**
+ * POST ke Gemini dengan RETRY pada error sementara (429/500/503 — server sibuk/limit sesaat)
+ * & kegagalan jaringan. Kembalikan body JSON terurai atau null. TIDAK PERNAH melempar.
+ * Ini kunci agar bot tidak "diam" saat Gemini sedang ramai (penyebab umum AI tak merespons).
+ */
+function geminiFetchRetry(url, payload) {
+  var opt = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
+  var delay = 700;
+  for (var attempt = 1; attempt <= 3; attempt++) {
+    var code = 0, text = '';
+    try {
+      var res = UrlFetchApp.fetch(url, opt);
+      code = res.getResponseCode();
+      text = res.getContentText();
+    } catch (e) {
+      logEvent('WARN', 'gemini_fetch_threw', 'percobaan ' + attempt + ': ' + String(e).slice(0, 120));
+      if (attempt < 3) { Utilities.sleep(delay); delay *= 2; continue; }
+      return null;
+    }
+    if (code === 200) { try { return JSON.parse(text); } catch (e) { return null; } }
+    if ((code === 429 || code === 500 || code === 503) && attempt < 3) {
+      logEvent('WARN', 'gemini_retry', 'HTTP ' + code + ' percobaan ' + attempt);
+      Utilities.sleep(delay); delay *= 2; continue;
+    }
+    logEvent('ERROR', 'gemini_http', 'HTTP ' + code + ' ' + text.slice(0, 200));
+    return null;
+  }
+  return null;
+}
+
 /** Panggil Gemini, kembalikan objek aksi {intent,...} atau null bila gagal. */
 function geminiParse(text) {
   var apiKey = cfg('GEMINI_API_KEY');
@@ -189,19 +219,8 @@ function geminiParse(text) {
     }
   };
 
-  var res = UrlFetchApp.fetch(url, {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-
-  var body;
-  try { body = JSON.parse(res.getContentText()); } catch (e) { body = null; }
-  if (!body || !body.candidates || !body.candidates[0]) {
-    logEvent('ERROR', 'gemini_failed', String(res.getResponseCode()) + ' ' + res.getContentText().slice(0, 300));
-    return null;
-  }
+  var body = geminiFetchRetry(url, payload);
+  if (!body || !body.candidates || !body.candidates[0]) return null;
   try {
     return JSON.parse(body.candidates[0].content.parts[0].text);
   } catch (e) {
@@ -250,12 +269,8 @@ function geminiChat(text, chatId) {
     generationConfig: { temperature: 0.6, maxOutputTokens: 800 }
   };
 
-  var res = UrlFetchApp.fetch(url, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true });
-  var body; try { body = JSON.parse(res.getContentText()); } catch (e) { body = null; }
-  if (!body || !body.candidates || !body.candidates[0]) {
-    logEvent('ERROR', 'gemini_chat_failed', String(res.getResponseCode()) + ' ' + res.getContentText().slice(0, 300));
-    return null;
-  }
+  var body = geminiFetchRetry(url, payload);
+  if (!body || !body.candidates || !body.candidates[0]) return null;
   var ans = '';
   try { ans = body.candidates[0].content.parts[0].text; } catch (e) { return null; }
   ans = String(ans || '').trim();

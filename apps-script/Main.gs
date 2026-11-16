@@ -37,9 +37,15 @@ function doPost(e) {
     }
 
     // Foto/gambar → jalur pembacaan gambar (Vision). Selain itu, teks → router.
-    var fileId = photoFileId(msg);
-    if (fileId) { handlePhoto(msg, fileId, chatId); return ok(); }
-    if (msg.text) { route(msg.text.trim(), chatId); return ok(); }
+    // Jaring pengaman: kalau handler error tak terduga, bot TETAP membalas (bukan diam).
+    try {
+      var fileId = photoFileId(msg);
+      if (fileId) { handlePhoto(msg, fileId, chatId); return ok(); }
+      if (msg.text) { route(msg.text.trim(), chatId); return ok(); }
+    } catch (err) {
+      logEvent('ERROR', 'handler_error', String(err));
+      try { sendMessage(chatId, '⚠️ Maaf, ada kendala sesaat memproses pesan Anda. Coba lagi ya.'); } catch (e2) {}
+    }
     return ok();
   } catch (err) {
     logEvent('ERROR', 'doPost_error', String(err));

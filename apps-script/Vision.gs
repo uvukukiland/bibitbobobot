@@ -156,30 +156,10 @@ function geminiVisionCall(b64, mime, hint, salvage) {
     }
   };
 
-  var body = geminiVisionFetch(url, payload);
+  var body = geminiFetchRetry(url, payload); // helper retry bersama (lihat AI.gs)
   if (!body || !body.candidates || !body.candidates[0]) return null;
   try { return JSON.parse(body.candidates[0].content.parts[0].text); }
   catch (e) { logEvent('ERROR', 'gemini_vision_parse_failed', String(e)); return null; }
-}
-
-/** POST ke Gemini dengan retry pada error sementara (429/500/503 — server sibuk). */
-function geminiVisionFetch(url, payload) {
-  var opt = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
-  var delay = 800;
-  for (var attempt = 1; attempt <= 3; attempt++) {
-    var res = UrlFetchApp.fetch(url, opt);
-    var code = res.getResponseCode();
-    if (code === 200) {
-      try { return JSON.parse(res.getContentText()); } catch (e) { return null; }
-    }
-    if ((code === 429 || code === 500 || code === 503) && attempt < 3) {
-      logEvent('WARN', 'gemini_vision_retry', 'HTTP ' + code + ' percobaan ' + attempt);
-      Utilities.sleep(delay); delay *= 2; continue;
-    }
-    logEvent('ERROR', 'gemini_vision_http', 'HTTP ' + code + ' ' + res.getContentText().slice(0, 300));
-    return null;
-  }
-  return null;
 }
 
 // ---------- Arsip foto ke Drive ----------
