@@ -30,9 +30,10 @@ function openaiProviders() {
       if (m) list.push({ name: nama, url: url, key: key, model: m });
     });
   }
-  var groq = cfgOptional('GROQ_API_KEY', '');
+  // .trim(): spasi/enter yang ikut tertempel di Script Properties membuat key ditolak (HTTP 401).
+  var groq = String(cfgOptional('GROQ_API_KEY', '')).trim();
   if (groq) tambah('groq', 'https://api.groq.com/openai/v1/chat/completions', groq, cfgOptional('GROQ_MODEL', 'llama-3.3-70b-versatile'));
-  var or = cfgOptional('OPENROUTER_API_KEY', '');
+  var or = String(cfgOptional('OPENROUTER_API_KEY', '')).trim();
   if (or) tambah('openrouter', 'https://openrouter.ai/api/v1/chat/completions', or, cfgOptional('OPENROUTER_MODEL', OPENROUTER_DEFAULT));
   return list;
 }
@@ -128,8 +129,29 @@ function testAIProviders() {
     var pas = o && o.intent === 'keluar' && Number(o.nominal) === 50000 && String(o.kategori).toLowerCase() === 'transport';
     Logger.log((o ? (pas ? '✅ ' : '⚠️ ') : '❌ ') + p.name + ' · ' + p.model + ' · ' + ms + ' ms · ' +
       (o ? JSON.stringify({ intent: o.intent, nominal: o.nominal, kategori: o.kategori }) + (pas ? '' : ' (jawaban kurang tepat)')
-         : 'gagal — cek API key / nama model / pengaturan privasi OpenRouter; detail di sheet Log'));
+         : 'GAGAL → ' + diagnosaProvider(p, sys, uji)));
   });
+  Logger.log('Petunjuk: 401 = API key salah/tidak aktif · 404 = nama model salah/tak tersedia · ' +
+    '429/503 = sedang limit/sibuk (wajar utk model gratis; rantai lanjut ke model berikutnya) · ' +
+    'pesan "data policy" = izinkan free endpoints di openrouter.ai → Settings → Privacy.');
+}
+
+/** Satu panggilan TANPA retry, untuk menampilkan pesan error asli server (dipakai testAIProviders). */
+function diagnosaProvider(p, sys, uji) {
+  try {
+    var res = UrlFetchApp.fetch(p.url, {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { Authorization: 'Bearer ' + p.key },
+      payload: JSON.stringify({ model: p.model, temperature: 0, max_tokens: 300, response_format: { type: 'json_object' },
+        messages: [{ role: 'system', content: sys }, { role: 'user', content: uji }] })
+    });
+    var code = res.getResponseCode(), teks = res.getContentText(), pesan = teks;
+    try { var b = JSON.parse(teks); pesan = (b.error && (b.error.message || JSON.stringify(b.error))) || teks; } catch (e) {}
+    if (code === 200) return 'HTTP 200 (berhasil saat dicoba ulang — sebelumnya sedang sibuk/limit)';
+    return 'HTTP ' + code + ': ' + String(pesan).replace(/\s+/g, ' ').slice(0, 220);
+  } catch (e) {
+    return 'jaringan: ' + String(e).slice(0, 160);
+  }
 }
 
 /** Ringkasan provider AI yang aktif (untuk /status). */
