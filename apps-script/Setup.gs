@@ -146,4 +146,8 @@ function setupVerify() {
   Object.keys(SCHEMA).forEach(function (name) {
     Logger.log('Sheet ' + name + ': ' + (ss().getSheetByName(name) ? 'ada' : 'BELUM ADA'));
   });
+  var kurang = (typeof berkasKurang === 'function') ? berkasKurang() : ['Main.gs']; // Main.gs lama = tanpa pemeriksa
+  Logger.log(kurang.length
+    ? 'BERKAS belum ada / versi lama: ' + kurang.join(', ') + ' → salin dari GitHub, simpan, Deploy → New version.'
+    : 'Berkas kode: ' + PENANDA_BERKAS.length + ' berkas lengkap & terbaru.');
 }

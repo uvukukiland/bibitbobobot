@@ -182,6 +182,7 @@ function geminiFetchRetry(url, payload, headers) {
   if (headers) opt.headers = headers;
   var delay = 700, mulai = Date.now();
   var bolehUlang = function (attempt) { return attempt < 3 && (Date.now() - mulai) < AI_BATAS_ULANG_MS; };
+  GEMINI_ERR_TERAKHIR = '';
   for (var attempt = 1; attempt <= 3; attempt++) {
     var code = 0, text = '';
     try {
@@ -190,10 +191,14 @@ function geminiFetchRetry(url, payload, headers) {
       text = res.getContentText();
     } catch (e) {
       logEvent('WARN', 'gemini_fetch_threw', 'percobaan ' + attempt + ' (' + (Date.now() - mulai) + ' ms): ' + String(e).slice(0, 120));
+      GEMINI_ERR_TERAKHIR = 'jaringan/timeout ' + Math.round((Date.now() - mulai) / 1000) + ' dtk';
       if (bolehUlang(attempt)) { Utilities.sleep(delay); delay *= 2; continue; }
       return null;
     }
-    if (code === 200) { try { return JSON.parse(text); } catch (e) { return null; } }
+    if (code === 200) {
+      try { return JSON.parse(text); } catch (e) { GEMINI_ERR_TERAKHIR = 'balasan bukan JSON'; return null; }
+    }
+    GEMINI_ERR_TERAKHIR = 'HTTP ' + code;
     if ((code === 429 || code === 500 || code === 503) && bolehUlang(attempt)) {
       logEvent('WARN', 'gemini_retry', 'HTTP ' + code + ' percobaan ' + attempt);
       Utilities.sleep(delay); delay *= 2; continue;
@@ -203,6 +208,12 @@ function geminiFetchRetry(url, payload, headers) {
   }
   return null;
 }
+
+/** Sebab kegagalan panggilan Gemini terakhir (mis. "HTTP 429") — untuk pesan ke pengguna. */
+var GEMINI_ERR_TERAKHIR = '';
+
+/** Pembaca GEMINI_ERR_TERAKHIR (juga penanda versi AI.gs utk berkasKurang di Main.gs). */
+function geminiErrTerakhir() { return GEMINI_ERR_TERAKHIR; }
 
 /** System prompt pengurai aksi (dipakai Gemini & provider cadangan). */
 function parseSystemPrompt() {

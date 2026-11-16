@@ -21,7 +21,8 @@ var MONTH_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 var BULAN_PENDEK = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-var DASH_VERSI = 'DASH_V3';         // penanda tata letak (sel J30, tersembunyi) — naikkan bila tata letak berubah
+var DASH_VERSI = 'DASH_V4';         // penanda tata letak (sel J30, tersembunyi) — naikkan bila tata letak/grafik berubah
+                                    // V4: chartArea eksplisit (label sumbu & legenda donat tak terpotong)
 var DASH_BARIS = 53;
 var DASH = {
   bg: '#F1F5F9', card: '#FFFFFF', ink: '#0F172A', muted: '#64748B', line: '#E2E8F0',
@@ -97,12 +98,14 @@ function buildDashboard() {
   sh.setRowHeight(24, 30);
   dashKepalaTabel(sh, 'A25:D25', ['Kategori', 'Terpakai', 'Batas', 'Progres']);
   dashKepalaTabel(sh, 'E25:H25', ['#', 'Kategori', 'Total', 'Porsi']);
+  // Judul kolom rata sama dgn isinya (teks kiri, Rp kanan).
+  sh.getRange('A25:H25').setHorizontalAlignments([['left', 'right', 'right', 'left', 'center', 'left', 'right', 'left']]);
   dashPanel(sh, 'A25:D33'); dashPanel(sh, 'E25:H33');
   sh.getRange('B26:C33').setNumberFormat('"Rp"#,##0').setHorizontalAlignment('right');
   sh.getRange('D26:D33').setFontFamily('Roboto Mono').setFontSize(9);
   sh.getRange('E26:E33').setHorizontalAlignment('center');
   sh.getRange('G26:G33').setNumberFormat('"Rp"#,##0').setHorizontalAlignment('right');
-  sh.getRange('H26:H33').setFontFamily('Roboto Mono').setFontSize(9);
+  sh.getRange('H26:H33').setFontFamily('Roboto Mono').setFontSize(9).setFontColor('#4F46E5'); // indigo, kontras 6:1
   sh.setRowHeight(34, 14);
 
   // --- Transaksi terakhir ---
@@ -110,6 +113,7 @@ function buildDashboard() {
   sh.setRowHeight(35, 30);
   for (var r = 36; r <= 46; r++) sh.getRange('F' + r + ':H' + r).merge();
   dashKepalaTabel(sh, 'A36:F36', ['Waktu', 'ID', 'Tipe', 'Nominal', 'Kategori', 'Keterangan']);
+  sh.getRange('A36:F36').setHorizontalAlignments([['center', 'center', 'center', 'right', 'left', 'left']]);
   dashPanel(sh, 'A36:H46');
   sh.getRange('A37:A46').setNumberFormat('dd/MM HH:mm').setHorizontalAlignment('center');
   sh.getRange('B37:C46').setHorizontalAlignment('center');
@@ -127,7 +131,6 @@ function buildDashboard() {
   // --- Data bantu grafik (kolom J–L, disembunyikan) ---
   sh.getRange('J1:L1').setValues([['Bulan', 'Pemasukan', 'Pengeluaran']]);
   sh.getRange('J10:K10').setValues([['Kategori', 'Total']]);
-  sh.getRange('J30').setValue(DASH_VERSI);
   sh.getRangeList(DASH_SEL_TEKS).setNumberFormat('@');
 
   // Rapikan kanvas: buang kolom & baris kosong di luar dashboard agar tepinya tak "bocor" putih.
@@ -136,43 +139,60 @@ function buildDashboard() {
 
   writeDashboardData(sh);
 
-  var grafikTren = sh.newChart()
+  var opsi = dashOpsiGrafik();
+  var pasangOpsi = function (b, o) { Object.keys(o).forEach(function (k) { b.setOption(k, o[k]); }); return b; };
+
+  sh.insertChart(pasangOpsi(sh.newChart()
     .setChartType(Charts.ChartType.COLUMN)
     .addRange(sh.getRange('J1:L7'))
     .setNumHeaders(1)
     .setHiddenDimensionStrategy(Charts.ChartHiddenDimensionStrategy.SHOW_BOTH)
-    .setPosition(9, 1, 6, 6)
-    .setOption('colors', [DASH.hijau, DASH.merah])
-    .setOption('legend', { position: 'bottom' })
-    .setOption('vAxis', { format: 'short', gridlines: { color: DASH.line } })
-    .setOption('backgroundColor', '#FFFFFF')
-    .setOption('chartArea', { width: '82%', height: '68%' })
-    .setOption('width', 460)
-    .setOption('height', 284)
-    .build();
-  sh.insertChart(grafikTren);
+    .setPosition(9, 1, 6, 6), opsi.tren).build());
 
-  var grafikDonat = sh.newChart()
+  sh.insertChart(pasangOpsi(sh.newChart()
     .setChartType(Charts.ChartType.PIE)
     .addRange(sh.getRange('J10:K19'))
     .setNumHeaders(1)
     .setHiddenDimensionStrategy(Charts.ChartHiddenDimensionStrategy.SHOW_BOTH)
-    .setPosition(9, 5, 6, 6)
-    .setOption('pieHole', 0.55)
-    .setOption('pieSliceText', 'percentage')
-    .setOption('legend', { position: 'right', textStyle: { fontSize: 10 } })
-    .setOption('colors', DASH_WARNA_DONAT)
-    .setOption('backgroundColor', '#FFFFFF')
-    .setOption('chartArea', { width: '90%', height: '85%' })
-    .setOption('width', 460)
-    .setOption('height', 284)
-    .build();
-  sh.insertChart(grafikDonat);
+    .setPosition(9, 5, 6, 6), opsi.donat).build());
 
+  // Penanda versi ditulis PALING AKHIR: bila pembangunan terputus (timeout dsb.), refresh berikutnya
+  // melihat penanda lama lalu membangun ulang — bukan terjebak tanpa grafik.
+  sh.getRange('J30').setValue(DASH_VERSI);
   sh.hideColumns(10, 3);   // J–L: data bantu (grafik tetap tampil berkat SHOW_BOTH)
   sh.setFrozenRows(2);
   SpreadsheetApp.flush();
   Logger.log('Dashboard (' + DASH_VERSI + ') selesai dibangun.');
+}
+
+/**
+ * Opsi kedua grafik (dipakai buildDashboard). chartArea left/top WAJIB eksplisit: grafik di Sheets
+ * menganggap left/top kosong = 0 (bukan 'auto' seperti Google Charts) → label sumbu-Y terpotong &
+ * legenda donat terjepit jadi huruf per baris (terukur dari screenshot, Nov 2026).
+ * Ukuran 460×284 px pas di panel 4 kolom × 118 px, baris 9–22.
+ */
+function dashOpsiGrafik() {
+  return {
+    tren: {
+      colors: [DASH.hijau, DASH.merah],
+      legend: { position: 'bottom', textStyle: { fontSize: 10, color: DASH.muted } },
+      vAxis: { format: 'short', minValue: 0, textStyle: { fontSize: 10, color: DASH.muted }, gridlines: { color: DASH.line } },
+      hAxis: { textStyle: { fontSize: 10, color: DASH.ink } },
+      backgroundColor: '#FFFFFF',
+      chartArea: { left: '15%', top: '6%', width: '81%', height: '68%' },   // kiri 69 px utk label Rp
+      width: 460, height: 284
+    },
+    donat: {
+      pieHole: 0.55,
+      pieSliceText: 'percentage',
+      legend: { position: 'right', alignment: 'center', textStyle: { fontSize: 11, color: DASH.ink } },
+      colors: DASH_WARNA_DONAT,
+      backgroundColor: '#FFFFFF',
+      // diameter = min(lebar, tinggi) → area persegi ±256 px; sisa ±188 px utk legenda.
+      chartArea: { left: '3%', top: '5%', width: '56%', height: '90%' },
+      width: 460, height: 284
+    }
+  };
 }
 
 // ======================================================================
@@ -192,13 +212,18 @@ function writeDashboardData(sh) {
   sh.getRange('C5').setValue(d.keluar);
   sh.getRange('E5').setValue(saldoBulan).setFontColor(saldoBulan < 0 ? DASH.merah : DASH.biru);
   sh.getRange('G5').setValue(d.saldoTotal).setFontColor(d.saldoTotal < 0 ? DASH.merah : DASH.ungu);
-  sh.getRange('A6').setValue(d.nMasuk + ' transaksi masuk');
-  var delta = deltaText(d.keluar, d.keluarPrev);
-  var adaPembanding = /%/.test(delta);
-  sh.getRange('C6').setValue(adaPembanding ? delta + ' vs bulan lalu' : delta)
-    .setFontColor(/▲/.test(delta) && adaPembanding ? DASH.merah : (/▼/.test(delta) ? DASH.hijauTeks : DASH.muted));
-  sh.getRange('E6').setValue(d.masuk > 0 ? '🐷 sisa ' + Math.round(saldoBulan / d.masuk * 100) + '% dari pemasukan' : d.nTx + ' transaksi bulan ini');
-  sh.getRange('G6').setValue(d.adaArsip ? 'semua waktu · termasuk arsip' : 'semua waktu');
+  sh.getRange('A6').setValue(d.nMasuk ? d.nMasuk + ' transaksi masuk bulan ini' : 'belum ada pemasukan bulan ini');
+  var kpi = kpiPengeluaranText(d);
+  sh.getRange('C6').setValue(kpi.teks).setFontColor(kpi.warna);
+  var e6;
+  if (d.masuk > 0) {
+    e6 = saldoBulan >= 0 ? '🐷 sisa ' + Math.round(saldoBulan / d.masuk * 100) + '% dari pemasukan'
+      : '⚠️ defisit Rp' + formatRupiah(d.keluar - d.masuk);
+  } else {
+    e6 = d.keluar > 0 ? d.nTx + ' transaksi · belum ada pemasukan' : d.nTx + ' transaksi bulan ini';
+  }
+  sh.getRange('E6').setValue(e6);
+  sh.getRange('G6').setValue(d.adaArsip ? 'semua tahun · termasuk arsip' : 'akumulasi semua transaksi');
 
   // Grafik tren (J2:L7) & donat (J11:K19). Label bulan dipaksa teks (pulihkan sendiri bila format hilang).
   sh.getRange('J2:J7').setNumberFormat('@');
@@ -228,7 +253,7 @@ function writeDashboardData(sh) {
   if (d.recent.length) {
     sh.getRange(37, 1, d.recent.length, 6).setValues(d.recent);
     sh.getRange(37, 3, d.recent.length, 1).setFontColors(d.recent.map(function (x) {
-      return [/masuk/.test(x[2]) ? DASH.hijauTeks : DASH.merah];
+      return [/^💰/.test(x[2]) ? DASH.hijauTeks : (/^💸/.test(x[2]) ? DASH.merah : DASH.kuningTeks)];
     }));
   } else {
     sh.getRange('A37').setValue('Belum ada transaksi');
@@ -253,13 +278,21 @@ function dataDashboard() {
     bulan6.push(x); tren[kunci(x.y, x.m)] = [0, 0];
   }
 
-  var masuk = 0, keluar = 0, keluarPrev = 0, nTx = 0, nMasuk = 0, net = 0;
-  var perKat = {}, harian = {}, terbesar = null, recent = [];
+  // Pembanding ADIL: pengeluaran bulan lalu pada PERIODE YANG SAMA (tgl 1..hari ini), bukan sebulan penuh.
+  // Bila hari ini >= panjang bulan lalu (mis. 31 Mar vs Feb), pakai bulan lalu seluruhnya.
+  var hariIni = now.getDate(), lenPrev = new Date(prev.y, prev.m, 0).getDate();
+  var prevPenuh = hariIni >= lenPrev;
+
+  var masuk = 0, keluar = 0, keluarPrev = 0, keluarPrevSd = 0, nTx = 0, nMasuk = 0, net = 0;
+  var perKat = {}, terbesar = null, recent = [];
 
   function catatTren(dt, tipe, nom) {
     var k = kunci(dt.getFullYear(), dt.getMonth() + 1);
     if (tren[k]) { if (tipe === 'masuk') tren[k][0] += nom; else if (tipe === 'keluar') tren[k][1] += nom; }
-    if (dt.getFullYear() === prev.y && dt.getMonth() + 1 === prev.m && tipe === 'keluar') keluarPrev += nom;
+    if (dt.getFullYear() === prev.y && dt.getMonth() + 1 === prev.m && tipe === 'keluar') {
+      keluarPrev += nom;
+      if (prevPenuh || dt.getDate() <= hariIni) keluarPrevSd += nom;
+    }
   }
 
   var rows = readAll('Keuangan');
@@ -279,11 +312,12 @@ function dataDashboard() {
       else if (tipe === 'keluar') {
         keluar += nom;
         perKat[kat] = (perKat[kat] || 0) + nom;
-        harian[dt.getDate()] = (harian[dt.getDate()] || 0) + nom;
         if (!terbesar || nom > terbesar.nom) terbesar = { nom: nom, kat: kat, ket: ket, dt: dt };
       }
     }
-    recent.push([dt, String(rows[r][6] || ''), tipe === 'masuk' ? '💰 masuk' : '💸 keluar', nom, kat, ket]);
+    // Tipe tak sah (diketik manual) ditandai ⚠️ — baris itu memang tak ikut dihitung di total.
+    var labelTipe = tipe === 'masuk' ? '💰 masuk' : (tipe === 'keluar' ? '💸 keluar' : '⚠️ ' + (tipe || 'tipe kosong'));
+    recent.push([dt, String(rows[r][6] || ''), labelTipe, nom, kat, ket]);
   }
 
   // Bulan dari tahun lalu yang sudah diarsipkan ikut masuk tren & pembanding.
@@ -318,7 +352,9 @@ function dataDashboard() {
     bs.getRange(2, 1, bs.getLastRow() - 1, 2).getValues().forEach(function (row) {
       var k = String(row[0] || '').toLowerCase().trim(), batas = Number(row[1]) || 0;
       if (!k || batas <= 0) return;
-      var pakai = perKat[k] || 0, pct = Math.round(pakai / batas * 100);
+      // floor (kali dulu agar bebas galat pecahan): merah 100% hanya bila BENAR-BENAR terlampaui,
+      // sama dgn ambang peringatan bot (cekBudget).
+      var pakai = perKat[k] || 0, pct = Math.floor(pakai * 100 / batas);
       budget.push({ kat: k, pakai: pakai, batas: batas, pct: pct, bar: dashBar(pct, 10) + ' ' + pct + '%' });
     });
     budget.sort(function (p, q) { return q.pct - p.pct; });
@@ -326,16 +362,31 @@ function dataDashboard() {
   }
 
   return {
-    b: b, masuk: masuk, keluar: keluar, keluarPrev: keluarPrev, nTx: nTx, nMasuk: nMasuk,
+    b: b, masuk: masuk, keluar: keluar, keluarPrev: keluarPrev, keluarPrevSd: keluarPrevSd, nTx: nTx, nMasuk: nMasuk,
+    labelPrev: prevPenuh ? BULAN_PENDEK[prev.m - 1] : (hariIni === 1 ? '1 ' : '1–' + hariIni + ' ') + BULAN_PENDEK[prev.m - 1],
     saldoTotal: net + saldoArsip(), adaArsip: saldoArsip() !== 0,
     tren: bulan6.map(function (x) { var v = tren[kunci(x.y, x.m)]; return [BULAN_PENDEK[x.m - 1] + ' ' + String(x.y).slice(2), v[0], v[1]]; }),
     donat: donat, top: top, budget: budget, recent: recent.slice(0, 10),
-    insight: dashInsight(b, now, masuk, keluar, urutKat, terbesar, harian)
+    insight: dashInsight(b, now, masuk, keluar, urutKat, terbesar)
   };
 }
 
+/**
+ * Subjudul kartu PENGELUARAN: bandingkan dgn bulan lalu pada periode yang sama (d.labelPrev,
+ * mis. "1–16 Okt"). Kembalikan { teks, warna }. Teks tak pernah diawali "=" (dibaca rumus oleh Sheets).
+ */
+function kpiPengeluaranText(d) {
+  if (!d.keluar) return { teks: '— belum ada pengeluaran bulan ini', warna: DASH.muted };
+  if (d.keluarPrevSd) {
+    var t = deltaText(d.keluar, d.keluarPrevSd);
+    return { teks: t + ' vs ' + d.labelPrev, warna: /▲/.test(t) ? DASH.merah : (/▼/.test(t) ? DASH.hijauTeks : DASH.muted) };
+  }
+  if (d.keluarPrev) return { teks: 'pembanding ' + d.labelPrev + ': Rp0', warna: DASH.muted };
+  return { teks: 'bulan lalu belum ada data', warna: DASH.muted };
+}
+
 /** 4 baris insight otomatis yang mudah dicerna. */
-function dashInsight(b, now, masuk, keluar, urutKat, terbesar, harian) {
+function dashInsight(b, now, masuk, keluar, urutKat, terbesar) {
   if (!keluar && !masuk) {
     return ['📝 Belum ada transaksi bulan ini — mulai catat lewat bot, mis. "kopi 25rb" atau kirim foto struk.',
       '📊 Dashboard ini otomatis diperbarui setiap kali Anda mencatat.', '🎯 Atur batas belanja: /budget makan 1000000', '💡 Lihat ringkasan cepat kapan saja: /saldo atau /rekap'];
@@ -344,8 +395,15 @@ function dashInsight(b, now, masuk, keluar, urutKat, terbesar, harian) {
   var hariIni = now.getDate(), jmlHari = new Date(b.y, b.m, 0).getDate();
   var rata = keluar / Math.max(1, hariIni);
   var out = [];
-  out.push('📅 Rata-rata pengeluaran harian Rp' + formatRupiah(Math.round(rata)) +
-    ' · proyeksi akhir bulan ±Rp' + formatRupiah(Math.round(rata * jmlHari)));
+  var baris1 = '📅 Rata-rata pengeluaran harian Rp' + formatRupiah(Math.round(rata));
+  // Proyeksi hanya bila datanya cukup (>= 7 hari) & bulan belum habis. Satu transaksi dominan
+  // (mis. sewa/cicilan > 40% total) tidak dikalikan ke sisa bulan — dihitung sekali saja.
+  if (keluar > 0 && hariIni >= 7 && hariIni < jmlHari) {
+    var satuKali = (terbesar && terbesar.nom > keluar * 0.4) ? terbesar.nom : 0;
+    var proyeksi = keluar + (keluar - satuKali) / hariIni * (jmlHari - hariIni);
+    baris1 += ' · proyeksi akhir bulan ±Rp' + formatRupiah(Math.round(proyeksi / 1000) * 1000) + ' (bila laju sama)';
+  }
+  out.push(baris1);
   if (urutKat.length) {
     out.push('🏷️ Kategori terbesar: ' + urutKat[0][0] + ' — ' + Math.round(urutKat[0][1] / keluar * 100) +
       '% dari pengeluaran (Rp' + formatRupiah(urutKat[0][1]) + ')');
@@ -356,13 +414,13 @@ function dashInsight(b, now, masuk, keluar, urutKat, terbesar, harian) {
     out.push('💥 Transaksi terbesar: Rp' + formatRupiah(terbesar.nom) + ' · ' + terbesar.kat +
       (terbesar.ket ? ' · ' + String(terbesar.ket).slice(0, 40) : '') + ' (' + Utilities.formatDate(terbesar.dt, tz, 'dd/MM') + ')');
   } else {
-    var hBoros = Object.keys(harian).sort(function (p, q) { return harian[q] - harian[p]; })[0];
-    out.push(hBoros ? '🔥 Hari paling boros: tanggal ' + hBoros + ' (Rp' + formatRupiah(harian[hBoros]) + ')' : '🔥 Belum ada pengeluaran harian.');
+    out.push('💰 Pemasukan bulan ini Rp' + formatRupiah(masuk) + ' — belum ada pengeluaran tercatat.');
   }
   if (masuk > 0) {
     var sisa = Math.round((masuk - keluar) / masuk * 100);
-    out.push('🐷 Sisa pemasukan bulan ini ' + sisa + '%' +
-      (sisa >= 20 ? ' — mantap, pertahankan!' : (sisa >= 0 ? ' — coba sisihkan minimal 20%.' : ' — pengeluaran melebihi pemasukan ⚠️')));
+    out.push(keluar <= masuk   // tanda PERSIS (bukan persen bulat: defisit 0,4% jadi "-0")
+      ? '🐷 Sisa pemasukan bulan ini ' + sisa + '%' + (sisa >= 20 ? ' — mantap, pertahankan!' : ' — coba sisihkan minimal 20%.')
+      : '⚠️ Pengeluaran ' + Math.round(keluar / masuk * 100) + '% dari pemasukan — defisit Rp' + formatRupiah(keluar - masuk) + '.');
   } else {
     out.push('🐷 Belum ada pemasukan tercatat bulan ini.');
   }
@@ -385,7 +443,7 @@ function scanKeuangan(b, prev) {
   var all = [];
   for (var i = 1; i < rows.length; i++) {
     var raw = rows[i][0];
-    var tipe = String(rows[i][1]).toLowerCase();
+    var tipe = String(rows[i][1] || '').toLowerCase().trim();
     var nom = Number(rows[i][2]) || 0;
     if (tipe === 'masuk') saldoTotal += nom;
     else if (tipe === 'keluar') saldoTotal -= nom;

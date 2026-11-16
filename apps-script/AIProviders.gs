@@ -390,7 +390,9 @@ function analisaBalasan200(body, setelahGagal) {
 function sensor(s) {
   return String(s)
     .replace(/(AIza|AQ\.|gsk_|sk-or-v1-|sk-|ya29\.)[0-9A-Za-z_\-.]{8,}/g, function (m, p) { return p + '••••(disensor)'; })
-    .replace(/\b\d{6,}:[A-Za-z0-9_-]{20,}\b/g, '••••(token disensor)')
+    // Token Telegram juga muncul di URL ".../bot<token>/sendMessage" — tanpa \b agar tetap tertangkap.
+    .replace(/(\/(?:file\/)?bot)[^\/\s"']+/g, '$1••••')
+    .replace(/\d{6,}:[A-Za-z0-9_-]{20,}/g, '••••(token disensor)')
     .replace(/([?&]key=)[^&\s"']+/g, '$1••••');
 }
 

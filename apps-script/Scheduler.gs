@@ -237,7 +237,7 @@ function sendRingkasanMingguan() {
     for (var i = 1; i < rows.length; i++) {
       var dt = (rows[i][0] instanceof Date) ? rows[i][0] : new Date(rows[i][0]);
       if (isNaN(dt.getTime()) || dt < sejak) continue;
-      var t = String(rows[i][1]).toLowerCase(), n = Number(rows[i][2]) || 0;
+      var t = String(rows[i][1] || '').toLowerCase().trim(), n = Number(rows[i][2]) || 0;
       nTx++;
       if (t === 'masuk') masuk += n;
       else if (t === 'keluar') { keluar += n; var k = String(rows[i][3] || 'lainnya').toLowerCase(); perKat[k] = (perKat[k] || 0) + n; }

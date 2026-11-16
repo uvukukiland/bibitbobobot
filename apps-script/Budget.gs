@@ -34,7 +34,7 @@ function totalKategoriBulan(kategori, b) {
   var target = String(kategori || '').toLowerCase().trim();
   var rows = readAll('Keuangan'), total = 0;
   for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][1]).toLowerCase() !== 'keluar') continue;
+    if (String(rows[i][1] || '').toLowerCase().trim() !== 'keluar') continue;
     if (String(rows[i][3] || '').toLowerCase().trim() !== target) continue;
     if (!inBulan(rows[i][0], b)) continue;
     total += Number(rows[i][2]) || 0;
@@ -55,7 +55,7 @@ function cekBudget(kategori, nominalBaru, chatId) {
     var total = totalKategoriBulan(kategori, b);      // sudah termasuk transaksi baru
     var prev = total - (Number(nominalBaru) || 0);    // total sebelum transaksi ini
     var soft = batas * 0.8;
-    var pct = Math.round(total / batas * 100);
+    var pct = Math.floor(total * 100 / batas);
     if (prev < batas && total >= batas) {
       sendMessage(chatId, '🚨 Budget <b>' + htmlEsc(kategori) + '</b> TERLAMPAUI!\n' +
         'Terpakai <b>Rp' + formatRupiah(total) + '</b> / Rp' + formatRupiah(batas) + ' bulan ini (' + pct + '%).', { html: true });
@@ -85,7 +85,7 @@ function cmdBudget(args, chatId) {
     for (var i = 1; i < rows.length; i++) {
       var kat = String(rows[i][0]).toLowerCase(), batas = Number(rows[i][1]) || 0;
       if (!kat || batas <= 0) continue;
-      var pakai = totalKategoriBulan(kat, b), pct = Math.round(pakai / batas * 100);
+      var pakai = totalKategoriBulan(kat, b), pct = Math.floor(pakai * 100 / batas);
       var ikon = pct >= 100 ? '🚨' : (pct >= 80 ? '⚠️' : '✅');
       out.push(ikon + ' <b>' + htmlEsc(kat) + '</b>: Rp' + formatRupiah(pakai) + ' / Rp' + formatRupiah(batas) + ' (' + pct + '%)');
     }
@@ -117,11 +117,18 @@ function cmdBudget(args, chatId) {
     if (String(rows2[j][0]).toLowerCase().trim() === kategori) { found = j + 1; break; }
   }
   if (hapus) {
-    if (found > 0) { s.deleteRow(found); sendMessage(chatId, '🗑️ Budget "' + htmlEsc(kategori) + '" dihapus.', { html: true }); }
-    else sendMessage(chatId, 'Kategori "' + htmlEsc(kategori) + '" belum punya budget.', { html: true });
+    if (found > 0) {
+      s.deleteRow(found);
+      sendMessage(chatId, '🗑️ Budget "' + htmlEsc(kategori) + '" dihapus.', { html: true });
+      refreshDashboard(); // panel 🎯 Budget di Dashboard ikut diperbarui
+    } else sendMessage(chatId, 'Kategori "' + htmlEsc(kategori) + '" belum punya budget.', { html: true });
     return;
   }
   if (found > 0) s.getRange(found, 2).setValue(nominal);
   else s.appendRow([kategori, nominal]);
-  sendMessage(chatId, '🎯 Budget <b>' + htmlEsc(kategori) + '</b> diset Rp' + formatRupiah(nominal) + '/bulan.', { html: true });
+  var b2 = { y: new Date().getFullYear(), m: new Date().getMonth() + 1 };
+  var terpakai = totalKategoriBulan(kategori, b2);
+  sendMessage(chatId, '🎯 Budget <b>' + htmlEsc(kategori) + '</b> diset Rp' + formatRupiah(nominal) + '/bulan.\n' +
+    'Terpakai bulan ini: Rp' + formatRupiah(terpakai) + ' (' + Math.floor(terpakai * 100 / nominal) + '%).', { html: true });
+  refreshDashboard(); // panel 🎯 Budget di Dashboard ikut diperbarui (tak melempar)
 }

@@ -69,12 +69,21 @@ flowchart LR
 ```
 .
 ├── apps-script/
-│   ├── Main.gs          # entry webhook (doPost) + gerbang whitelist
+│   ├── Main.gs          # entry webhook (doPost) + gerbang whitelist + cek berkas
 │   ├── Router.gs        # parsing & dispatch perintah
 │   ├── Commands.gs      # /keluar /masuk /tugas /catat /selesai /cari
-│   ├── Rekap.gs         # /rekap /daftar /edit /hapus
+│   ├── Rekap.gs         # /rekap /saldo /daftar /riwayat /edit /hapus /status
 │   ├── AI.gs            # lapisan bahasa natural (Gemini)
+│   ├── AIProviders.gs   # cadangan Groq/OpenRouter + testGemini
+│   ├── Vision.gs        # baca foto struk/nota/transfer/resi
+│   ├── Kamus.gs         # mesin kamus kategori (/cek /kamus /lainnya)
+│   ├── KamusData.gs     # data kata kunci kamus
+│   ├── Budget.gs        # /budget + peringatan
+│   ├── Export.gs        # /export (.xlsx)
 │   ├── Dashboard.gs     # dashboard keuangan (dihitung di JS, anti-locale)
+│   ├── Polish.gs        # kerapian sheet & dropdown
+│   ├── Audit.gs         # audit & perbaikan data
+│   ├── Dropbox.gs       # /dropbox
 │   ├── Scheduler.gs     # heartbeat, pengingat, trigger
 │   ├── Drive.gs         # pencarian berkas Drive (rekursif)
 │   ├── Validate.gs      # parsing nominal/tanggal/kategori
@@ -93,7 +102,7 @@ flowchart LR
 Bot ini berjalan di **Google Apps Script** (gratis, tanpa server). Ringkasnya:
 
 1. Buat bot via **@BotFather**, ambil token & chat ID Anda.
-2. Buat Google Spreadsheet + proyek Apps Script, tempel berkas `apps-script/*.gs`.
+2. Buat Google Spreadsheet + proyek Apps Script, tempel **semua 22** berkas `apps-script/*.gs` (cek dengan `/status` → Berkas kode).
 3. Isi Script Properties (token, chat ID, spreadsheet ID, Gemini API key).
 4. Deploy sebagai **Web App** (`/exec`) lalu daftarkan webhook.
 

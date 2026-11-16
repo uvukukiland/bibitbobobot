@@ -39,7 +39,7 @@ function saldoArsip() {
 function netKeuangan() {
   var k = readAll('Keuangan'), net = 0;
   for (var i = 1; i < k.length; i++) {
-    var t = String(k[i][1]).toLowerCase(), n = Number(k[i][2]) || 0;
+    var t = String(k[i][1] || '').toLowerCase().trim(), n = Number(k[i][2]) || 0;
     if (t === 'masuk') net += n; else if (t === 'keluar') net -= n;
   }
   return net;
@@ -81,7 +81,7 @@ function arsipKeuangan() {
     if (isNaN(dt.getTime())) continue;
     var y = dt.getFullYear();
     if (y >= nowYear) continue; // hanya tahun yang sudah lewat
-    var t = String(data[i][1]).toLowerCase(), n = Number(data[i][2]) || 0;
+    var t = String(data[i][1] || '').toLowerCase().trim(), n = Number(data[i][2]) || 0;
     if (t === 'masuk') netDiarsip += n; else if (t === 'keluar') netDiarsip -= n;
     (perTahun[y] = perTahun[y] || []).push([Utilities.formatDate(dt, tz, 'yyyy-MM'),
       data[i][0], data[i][1], data[i][2], data[i][3], data[i][4], data[i][5]]);
@@ -136,7 +136,7 @@ function cmdRekap(args, chatId) {
   var masuk = 0, keluar = 0, nTx = 0, perKat = {};
   for (var i = 0; i < rows.length; i++) {
     if (!inBulan(rows[i][0], b)) continue;
-    var tipe = String(rows[i][1]).toLowerCase(), nom = Number(rows[i][2]) || 0;
+    var tipe = String(rows[i][1] || '').toLowerCase().trim(), nom = Number(rows[i][2]) || 0;
     nTx++;
     if (tipe === 'masuk') masuk += nom;
     else if (tipe === 'keluar') {
@@ -173,7 +173,7 @@ function cmdRekapTahun(year, chatId) {
   for (var i = 0; i < rows.length; i++) {
     var dt = (rows[i][0] instanceof Date) ? rows[i][0] : new Date(rows[i][0]);
     if (isNaN(dt.getTime()) || dt.getFullYear() !== year) continue;
-    var m = dt.getMonth() + 1, tipe = String(rows[i][1]).toLowerCase(), nom = Number(rows[i][2]) || 0;
+    var m = dt.getMonth() + 1, tipe = String(rows[i][1] || '').toLowerCase().trim(), nom = Number(rows[i][2]) || 0;
     if (!perBulan[m]) perBulan[m] = [0, 0];
     nTx++;
     if (tipe === 'masuk') { perBulan[m][0] += nom; totMasuk += nom; }
@@ -279,6 +279,10 @@ function cmdStatus(chatId) {
   ['TELEGRAM_BOT_TOKEN', 'ALLOWED_CHAT_ID', 'SPREADSHEET_ID', 'GEMINI_API_KEY'].forEach(function (k) {
     out.push((cfgOptional(k, '') ? '✅' : '❌') + ' ' + k);
   });
+  var kurang = (typeof berkasKurang === 'function') ? berkasKurang() : ['Main.gs']; // Main.gs lama = tanpa pemeriksa
+  out.push('', '<b>Berkas kode</b>', kurang.length
+    ? '❌ belum ada / versi lama: ' + htmlEsc(kurang.join(', ')) + '\n<i>Salin dari GitHub, simpan, lalu Deploy → New version.</i>'
+    : '✅ ' + PENANDA_BERKAS.length + ' berkas lengkap & terbaru');
   out.push('', '<b>Otak AI</b> <i>(urutan cadangan)</i>');
   aiProvidersStatus().forEach(function (l) { out.push(htmlEsc(l)); });
   out.push('', '<b>Trigger</b>');

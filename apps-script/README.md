@@ -17,6 +17,17 @@ Acuan: [../DESAIN-DAN-TASK.md](../DESAIN-DAN-TASK.md) §F (Fase 0).
 | `Commands.gs` | handler `/keluar`,`/masuk`,`/tugas`,`/catat` (Fase 1) |
 | `Validate.gs` | validasi nominal/kategori/tanggal (Fase 1) |
 | `Scheduler.gs` | heartbeat harian + pemasang trigger (Fase 1) |
+| `Rekap.gs` | `/rekap` `/saldo` `/daftar` `/riwayat` `/edit` `/hapus` `/status` + arsip tahunan |
+| `Drive.gs` · `Dropbox.gs` | pencarian berkas `/cari` · `/dropbox` |
+| `AI.gs` | bahasa natural & obrolan via Gemini |
+| `AIProviders.gs` | cadangan Groq/OpenRouter + `testGemini` · `testSemuaAI` |
+| `Vision.gs` | baca foto struk/nota/transfer/resi |
+| `Kamus.gs` · `KamusData.gs` | kamus kategori (`/cek` `/kamus` `/lainnya`) |
+| `Budget.gs` | `/budget` + peringatan 80%/100% |
+| `Export.gs` | `/export` (backup .xlsx) |
+| `Dashboard.gs` · `Polish.gs` · `Audit.gs` | dashboard, kerapian sheet, audit data |
+
+> **SEMUA 22 berkas `.gs` wajib ada** di project Apps Script (nama persis sama; tambah lewat **+ → Skrip**, tanpa mengetik `.gs`). Berkas yang terlewat menyebabkan error seperti `cmdBudget is not defined`. Cek kapan saja dengan **`/status` → Berkas kode** (harus `✅ 22 berkas lengkap & terbaru`); bila ada yang kurang, bot juga menyebut nama berkasnya saat error.
 
 ---
 
