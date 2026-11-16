@@ -170,10 +170,18 @@ function tebakAksiKeuangan(text) {
  * & kegagalan jaringan. Kembalikan body JSON terurai atau null. TIDAK PERNAH melempar.
  * Ini kunci agar bot tidak "diam" saat Gemini sedang ramai (penyebab umum AI tak merespons).
  */
+/**
+ * Batas waktu untuk MENCOBA ULANG panggilan AI. UrlFetchApp tak punya pengaturan timeout per panggilan,
+ * jadi satu model yang macet bisa memakan menit-an; tanpa batas ini, 3x ulang + diagnosis pernah
+ * menghabiskan seluruh 6 menit eksekusi (uji gemini-3.8-flash). Lewat batas -> menyerah -> cadangan.
+ */
+var AI_BATAS_ULANG_MS = 15000;
+
 function geminiFetchRetry(url, payload, headers) {
   var opt = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
   if (headers) opt.headers = headers;
-  var delay = 700;
+  var delay = 700, mulai = Date.now();
+  var bolehUlang = function (attempt) { return attempt < 3 && (Date.now() - mulai) < AI_BATAS_ULANG_MS; };
   for (var attempt = 1; attempt <= 3; attempt++) {
     var code = 0, text = '';
     try {
@@ -181,12 +189,12 @@ function geminiFetchRetry(url, payload, headers) {
       code = res.getResponseCode();
       text = res.getContentText();
     } catch (e) {
-      logEvent('WARN', 'gemini_fetch_threw', 'percobaan ' + attempt + ': ' + String(e).slice(0, 120));
-      if (attempt < 3) { Utilities.sleep(delay); delay *= 2; continue; }
+      logEvent('WARN', 'gemini_fetch_threw', 'percobaan ' + attempt + ' (' + (Date.now() - mulai) + ' ms): ' + String(e).slice(0, 120));
+      if (bolehUlang(attempt)) { Utilities.sleep(delay); delay *= 2; continue; }
       return null;
     }
     if (code === 200) { try { return JSON.parse(text); } catch (e) { return null; } }
-    if ((code === 429 || code === 500 || code === 503) && attempt < 3) {
+    if ((code === 429 || code === 500 || code === 503) && bolehUlang(attempt)) {
       logEvent('WARN', 'gemini_retry', 'HTTP ' + code + ' percobaan ' + attempt);
       Utilities.sleep(delay); delay *= 2; continue;
     }

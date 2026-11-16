@@ -72,6 +72,8 @@ function openaiFetch(p, payload) {
   var opt = { method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + p.key }, payload: JSON.stringify(payload) };
   AI_ERR_TERAKHIR = '';
+  var mulai = Date.now();
+  var bolehUlang = function (attempt) { return attempt < 2 && (Date.now() - mulai) < AI_BATAS_ULANG_MS; };
   for (var attempt = 1; attempt <= 2; attempt++) {
     var code = 0, text = '';
     try {
@@ -79,13 +81,13 @@ function openaiFetch(p, payload) {
       code = res.getResponseCode();
       text = res.getContentText();
     } catch (e) {
-      AI_ERR_TERAKHIR = 'jaringan: ' + sensor(String(e)).slice(0, 160);
-      if (attempt < 2) { Utilities.sleep(600); continue; }
+      AI_ERR_TERAKHIR = 'jaringan/timeout (' + Math.round((Date.now() - mulai) / 1000) + ' dtk): ' + sensor(String(e)).slice(0, 140);
+      if (bolehUlang(attempt)) { Utilities.sleep(600); continue; }
       return null;
     }
     if (code === 200) { try { return JSON.parse(text); } catch (e2) { AI_ERR_TERAKHIR = 'balasan bukan JSON'; return null; } }
     AI_ERR_TERAKHIR = 'HTTP ' + code + ': ' + ringkasErrorAI(text);
-    if ((code === 500 || code === 502 || code === 503) && attempt < 2) { Utilities.sleep(600); continue; }
+    if ((code === 500 || code === 502 || code === 503) && bolehUlang(attempt)) { Utilities.sleep(600); continue; }
     logEvent('WARN', 'ai_' + p.name + '_gagal', p.model + ' · ' + AI_ERR_TERAKHIR);
     return null;
   }
@@ -255,7 +257,7 @@ function testGemini() {
     try { a = geminiParse(u[0]); } catch (e) { lempar = true; laporLempar('urai transaksi', e); }
     var ms = Date.now() - t0;
     if (!a) {
-      logAman('❌ urai "' + u[0] + '" GAGAL · ' + ms + ' ms → ' + diagnosaGemini(key, model, 'urai', !lempar).teks);
+      logAman('❌ urai "' + u[0] + '" GAGAL · ' + ms + ' ms → ' + penjelasanGagal(key, model, 'urai', ms, lempar));
       logAman('   (uji urai dihentikan agar kuota tak terbuang)');
       break;
     }
@@ -280,7 +282,7 @@ function testGemini() {
   try { c = geminiChat('Kamu siapa dan bisa bantu apa saja? Jawab 1–2 kalimat.', 'uji-' + Date.now()); } catch (e2) { lemparC = true; laporLempar('obrolan', e2); }
   var msC = Date.now() - tc;
   logAman(c ? '✅ obrolan · ' + msC + ' ms · "' + String(c).replace(/\s+/g, ' ').slice(0, 160) + '"'
-            : '❌ obrolan GAGAL · ' + msC + ' ms → ' + diagnosaGemini(key, mObrol, 'obrolan', !lemparC).teks);
+            : '❌ obrolan GAGAL · ' + msC + ' ms → ' + penjelasanGagal(key, mObrol, 'obrolan', msC, lemparC));
 
   // 3) Model foto: pastikan modelnya ada & menjawab (uji baca foto asli: kirim foto struk ke bot).
   if (visi !== model) {
@@ -298,6 +300,19 @@ function testGemini() {
   logAman(cadangan
     ? 'Bila Gemini gagal: mencatat & ngobrol otomatis pindah ke ' + cadangan + ' model cadangan (Groq/OpenRouter). BACA FOTO hanya lewat Gemini — tidak ada cadangan.'
     : 'Bila Gemini gagal: TIDAK ada cadangan (GROQ_API_KEY/OPENROUTER_API_KEY kosong) — bot hanya bisa kamus & perintah garis miring. BACA FOTO hanya lewat Gemini.');
+}
+
+/**
+ * Penjelasan kegagalan utk testGemini. Bila panggilan sudah LAMA (> 20 dtk), JANGAN diagnosis ulang
+ * (model yg macet akan menggantung lagi & bisa menghabiskan batas 6 menit) — langsung beri arahan.
+ */
+function penjelasanGagal(key, model, jenis, ms, lempar) {
+  if (ms > 20000) {
+    return '⏱️ tidak menjawab dalam ' + Math.round(ms / 1000) + ' dtk (macet/terlalu lambat) — ' + model + ' tidak cocok utk bot. ' +
+      (jenis === 'obrolan' ? 'Hapus Script Property GEMINI_CHAT_MODEL (obrolan kembali ke model catat yg cepat).'
+                           : 'Ganti/hapus Script Property GEMINI_MODEL (bawaan: ' + GEMINI_MODEL_DEFAULT + ').');
+  }
+  return diagnosaGemini(key, model, jenis, !lempar).teks;
 }
 
 /** Lapor exception tanpa membocorkan rahasia; kenali salah tempel "nilai key di tempat nama property". */
