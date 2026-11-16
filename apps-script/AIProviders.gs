@@ -65,7 +65,7 @@ function aiParse(text) {
     '\n\nBALAS HANYA satu objek JSON valid, tanpa teks lain & tanpa code-fence. ' +
     'Field yang boleh ada: intent, nominal, kategori, keterangan, teks, jatuh_tempo, query, bulan, id, target, tanggal, field, nilai, jam. ' +
     'Sertakan "intent" selalu.';
-  var r = openaiComplete([{ role: 'system', content: sys }, { role: 'user', content: text }], { json: true, temperature: 0 });
+  var r = openaiComplete([{ role: 'system', content: sys }, { role: 'user', content: text + petunjukKamus(text) }], { json: true, temperature: 0 });
   if (!r) return null;
   var obj = extractJson(r.text);
   return (obj && obj.intent) ? obj : null;

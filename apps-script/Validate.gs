@@ -19,16 +19,9 @@ function parseNominal(raw) {
  * Kolom tipe 'both' (atau kosong) berlaku untuk keduanya.
  */
 function isKategoriValid(kategori, tipe) {
-  var target = String(kategori).trim().toLowerCase();
-  var rows = readAll('Kategori');
-  for (var i = 1; i < rows.length; i++) {
-    var k = String(rows[i][0]).trim().toLowerCase();
-    if (k === target) {
-      var t = String(rows[i][1]).trim().toLowerCase();
-      return t === 'both' || t === '' || t === tipe;
-    }
-  }
-  return false;
+  var t = kategoriSheetMap()[String(kategori).trim().toLowerCase()]; // cache per eksekusi (Kamus.gs)
+  if (t === undefined) return false;
+  return t === 'both' || t === '' || t === tipe;
 }
 
 /** Validasi tanggal ketat format YYYY-MM-DD. */

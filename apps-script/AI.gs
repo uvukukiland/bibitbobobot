@@ -38,27 +38,8 @@ function kategoriListText() {
   return 'kategori keluar: [' + keluar.join(', ') + '] ; kategori masuk: [' + masuk.join(', ') + ']';
 }
 
-/**
- * Kamus kata kunci -> kategori (kategori KELUAR). Satu sumber kebenaran:
- * dipakai untuk (a) panduan prompt AI dan (b) tebakan deterministik.
- * Tambah/ubah kata di sini saja. Hindari kata yang ambigu (mis. "tiket" sendiri).
- */
-var KATEGORI_KEYWORDS = {
-  makan: ['makan', 'makanan', 'minuman', 'jajan', 'jajanan', 'ngemil', 'cemilan', 'nongki', 'kopi', 'ngopi', 'es kopi', 'cafe', 'kafe', 'resto', 'restoran', 'warung', 'warteg', 'gofood', 'grabfood', 'shopeefood', 'snack', 'kue', 'roti', 'donat', 'catering', 'nasi', 'nasi goreng', 'nasi padang', 'ayam geprek', 'bakso', 'mie ayam', 'mie instan', 'indomie', 'bakmi', 'sate', 'martabak', 'gorengan', 'jus', 'boba', 'seblak', 'pempek', 'siomay', 'batagor', 'cilok', 'sushi', 'ramen', 'seafood', 'pizza', 'burger', 'kfc', 'mcd', 'mcdonald', 'hokben', 'starbucks', 'mixue', 'janji jiwa', 'kopi kenangan', 'es teh', 'es krim', 'dimsum', 'kebab', 'soto', 'pecel', 'gado-gado', 'kantin', 'angkringan', 'lalapan', 'frozen food', 'sembako', 'beras', 'telur', 'gula', 'minyak goreng', 'sayur', 'daging', 'buah', 'susu kotak'],
-  transport: ['bensin', 'isi bensin', 'bbm', 'pertalite', 'pertamax', 'pertamax turbo', 'solar', 'dexlite', 'spbu', 'shell', 'ojek', 'ojol', 'ojek online', 'grab', 'gojek', 'gocar', 'grabbike', 'grabcar', 'maxim', 'indriver', 'bluebird', 'gosend', 'taksi', 'taxi', 'angkot', 'busway', 'transjakarta', 'damri', 'mikrolet', 'kereta', 'krl', 'mrt', 'lrt', 'commuter', 'tol', 'e-toll', 'etoll', 'parkir', 'parkir motor', 'parkir mobil', 'ongkos', 'tiket pesawat', 'tiket kereta', 'tiket bus', 'tiket kapal', 'pesawat', 'ferry', 'servis motor', 'servis mobil', 'tune up', 'ganti oli', 'oli', 'tambal ban', 'ban', 'ban motor', 'aki', 'busi', 'kampas rem', 'wiper', 'nitrogen', 'bengkel', 'cuci motor', 'cuci mobil', 'cuci helm', 'derek', 'pajak kendaraan', 'stnk', 'tilang', 'denda tilang', 'rental mobil', 'sewa motor', 'travel'],
-  belanja: ['sampo', 'shampoo', 'sabun', 'sabun mandi', 'sabun cuci', 'odol', 'pasta gigi', 'sikat gigi', 'deterjen', 'pewangi', 'pelembut', 'tisu', 'tissue', 'skincare', 'kosmetik', 'bedak', 'lipstik', 'parfum', 'sunscreen', 'handbody', 'lotion', 'deodorant', 'pembalut', 'toner', 'serum', 'masker wajah', 'softlens', 'baju', 'pakaian', 'celana', 'kaos', 'kemeja', 'jaket', 'jilbab', 'hijab', 'gamis', 'mukena', 'sajadah', 'sarung', 'peci', 'baju koko', 'seragam', 'sepatu', 'sandal', 'kaos kaki', 'topi', 'ikat pinggang', 'tas', 'dompet', 'jam tangan', 'kacamata', 'aksesoris', 'gelang', 'kalung', 'cincin', 'anting', 'handuk', 'alat tulis', 'pulpen', 'pensil', 'buku tulis', 'kertas', 'elektronik', 'gadget', 'hp', 'laptop', 'komputer', 'printer', 'charger', 'kabel', 'kabel data', 'powerbank', 'mouse', 'keyboard', 'flashdisk', 'casing', 'tempered glass', 'anti gores', 'speaker', 'adaptor', 'earphone', 'headset', 'servis hp', 'service hp', 'perbaikan hp', 'ganti baterai', 'ganti lcd', 'servis laptop', 'rokok', 'vape', 'kado', 'salon', 'potong rambut', 'barbershop', 'cukur', 'pangkas rambut', 'creambath', 'facial', 'fotokopi', 'print', 'ongkir', 'jne', 'jnt', 'sicepat', 'anteraja', 'shopee', 'tokopedia', 'lazada', 'blibli', 'bukalapak', 'tiktok shop', 'olshop', 'belanja', 'minimarket', 'indomaret', 'alfamart', 'transmart', 'hypermart', 'superindo', 'uniqlo', 'erafone', 'ibox'],
-  tagihan: ['bpjs', 'asuransi', 'premi', 'listrik', 'pln', 'token listrik', 'token pln', 'pulsa listrik', 'tagihan listrik', 'bayar listrik', 'pdam', 'tagihan air', 'pgn', 'gas pgn', 'telepon', 'telkom', 'indihome', 'first media', 'biznet', 'myrepublic', 'iconnet', 'wifi', 'internet rumah', 'sewa wifi', 'tv kabel', 'langganan koran', 'iuran', 'iuran rt', 'iuran warga', 'iuran sampah', 'sampah', 'keamanan', 'cicilan', 'angsuran', 'kartu kredit', 'kredit', 'kpr', 'paylater', 'kredivo', 'akulaku', 'spaylater', 'home credit', 'leasing', 'pbb', 'pajak bumi', 'biaya admin', 'admin bank', 'pajak penghasilan', 'pph'],
-  pulsa: ['pulsa', 'isi pulsa', 'beli pulsa', 'voucher pulsa', 'kuota', 'kuota internet', 'paket data', 'paket internet', 'paket nelpon', 'paket telpon', 'paketan', 'roaming', 'esim', 'kartu perdana', 'telkomsel', 'indosat', 'im3', 'smartfren', 'by.u'],
-  hiburan: ['netflix', 'spotify', 'disney', 'youtube premium', 'youtube music', 'amazon prime', 'prime video', 'apple music', 'joox', 'vidio', 'wetv', 'viu', 'iqiyi', 'hbo', 'iflix', 'mola', 'catchplay', 'crunchyroll', 'twitch', 'webtoon', 'bioskop', 'xxi', 'cgv', 'nonton', 'tiket bioskop', 'tiket konser', 'konser', 'game', 'top up game', 'voucher game', 'mobile legend', 'mobile legends', 'diamond ml', 'free fire', 'pubg', 'uc pubg', 'genshin', 'genshin impact', 'honkai', 'valorant', 'roblox', 'robux', 'steam', 'playstation', 'ps4', 'ps5', 'xbox', 'nintendo', 'nintendo switch', 'karaoke', 'wisata', 'liburan', 'rekreasi', 'tiket masuk', 'dufan', 'ancol', 'taman safari', 'trans studio', 'waterboom', 'waterpark', 'kebun binatang', 'wahana'],
-  kesehatan: ['obat', 'apotek', 'apotik', 'dokter', 'dokter gigi', 'rumah sakit', 'klinik', 'puskesmas', 'igd', 'rawat inap', 'rawat jalan', 'kontrol', 'periksa', 'periksa mata', 'optik', 'cek darah', 'cek gula', 'cek kolesterol', 'cek kesehatan', 'medical checkup', 'lab', 'laboratorium', 'rontgen', 'usg', 'swab', 'antigen', 'pcr', 'rapid test', 'operasi', 'fisioterapi', 'terapi', 'vitamin', 'suplemen', 'vaksin', 'imunisasi', 'paracetamol', 'antibiotik', 'salep', 'betadine', 'plester', 'hansaplast', 'perban', 'kasa', 'antiseptik', 'hand sanitizer', 'koyo', 'salonpas', 'counterpain', 'balsem', 'minyak kayu putih', 'minyak angin', 'freshcare', 'tolak angin', 'antangin', 'antimo', 'promag', 'antasida', 'obat maag', 'bodrex', 'panadol', 'sanmol', 'decolgen', 'paramex', 'komix', 'obat batuk', 'obat demam', 'norit', 'entrostop', 'diapet', 'tetes mata', 'jamu', 'herbal', 'tensimeter', 'oximeter', 'thermometer', 'kursi roda', 'behel', 'scaling', 'tambal gigi', 'cabut gigi', 'bidan', 'persalinan', 'melahirkan', 'masker medis', 'pijat', 'spa', 'massage', 'refleksi', 'luluran'],
-  pendidikan: ['sekolah', 'kuliah', 'kursus', 'les', 'les privat', 'bimbel', 'bimbingan', 'spp', 'ukt', 'uang sekolah', 'uang gedung', 'uang pangkal', 'biaya sekolah', 'biaya kuliah', 'iuran sekolah', 'daftar ulang', 'buku', 'ebook', 'e-book', 'jurnal', 'modul', 'seminar', 'workshop', 'bootcamp', 'pelatihan', 'training', 'webinar', 'kelas online', 'tryout', 'try out', 'wisuda', 'toga', 'skripsi', 'tesis', 'praktikum', 'toefl', 'ielts', 'sertifikasi', 'mengaji', 'ngaji', 'tpa', 'madrasah', 'pesantren', 'ruangguru', 'zenius', 'quipper', 'udemy', 'coursera', 'skill academy'],
-  rumah: ['perabot', 'perabotan', 'furniture', 'mebel', 'perlengkapan rumah', 'perbaikan rumah', 'renovasi', 'galon', 'galon air', 'elpiji', 'lpg', 'gas elpiji', 'gas 3kg', 'tabung gas', 'regulator', 'gas', 'sapu', 'pel', 'lap', 'kanebo', 'pengki', 'serbet', 'ember', 'panci', 'wajan', 'piring', 'gelas', 'kompor', 'rice cooker', 'magic com', 'blender', 'mixer', 'vacuum', 'dispenser', 'kulkas', 'mesin cuci', 'kipas angin', 'kasur', 'bantal', 'sprei', 'gorden', 'karpet', 'keset', 'lemari', 'jam dinding', 'lampu', 'lampu led', 'bohlam', 'stop kontak', 'kabel listrik', 'pipa', 'kran', 'selang', 'cat tembok', 'semen', 'keramik', 'paku', 'obat nyamuk', 'baygon', 'pembersih lantai', 'wipol', 'sunlight', 'sikat wc', 'pengharum ruangan', 'kapur barus', 'tukang', 'tukang ledeng', 'tukang listrik', 'service ac', 'servis ac', 'service kulkas', 'service tv', 'service mesin cuci', 'asisten rumah tangga', 'pembantu', 'sewa rumah', 'kontrakan', 'bayar kos', 'kos', 'kost', 'laundry', 'cuci baju', 'setrika'],
-  anak: ['popok', 'pampers', 'diapers', 'merries', 'mamypoko', 'susu anak', 'susu formula', 'sufor', 'sgm', 'bebelac', 'mpasi', 'bubur bayi', 'biskuit bayi', 'cerelac', 'milna', 'mainan', 'mainan anak', 'baju anak', 'baju bayi', 'sepatu anak', 'stroller', 'gendongan', 'box bayi', 'baby walker', 'car seat', 'breast pump', 'minyak telon', 'bedak bayi', 'sabun bayi', 'baby oil', 'baby cream', 'wet wipes', 'gurita', 'selimut bayi', 'vitamin anak', 'zwitsal', 'daycare', 'perlengkapan bayi'],
-  sedekah: ['sedekah', 'sedekah subuh', 'jumat berkah', 'sodaqoh', 'zakat', 'zakat fitrah', 'zakat mal', 'infaq', 'infak', 'infak masjid', 'iuran masjid', 'donasi', 'sumbangan', 'amal', 'dana sosial', 'kemanusiaan', 'wakaf', 'qurban', 'kurban', 'aqiqah', 'fidyah', 'santunan', 'kotak amal', 'kencleng', 'panti asuhan', 'yatim', 'perpuluhan', 'kolekte', 'persembahan'],
-  olahraga: ['gym', 'fitness', 'fitnes', 'membership gym', 'jogging', 'lari', 'maraton', 'fun run', 'sepeda', 'sewa sepeda', 'gowes', 'helm sepeda', 'futsal', 'badminton', 'renang', 'kolam renang', 'kacamata renang', 'sewa lapangan', 'yoga', 'kelas yoga', 'zumba', 'kelas zumba', 'pilates', 'aerobik', 'boxing', 'muaythai', 'karate', 'taekwondo', 'pencak silat', 'panjat tebing', 'wall climbing', 'raket', 'shuttlecock', 'dumbbell', 'barbel', 'treadmill', 'whey protein', 'matras yoga'],
-  utang: ['utang', 'hutang', 'ngutang', 'berhutang', 'bayar utang', 'bayar hutang', 'lunasi utang', 'lunas utang', 'lunasi hutang', 'cicil utang', 'pinjaman', 'pinjam uang', 'minjam', 'minjem', 'pinjol', 'pinjaman online', 'kasbon', 'bon utang', 'dp pinjaman', 'angsuran utang', 'kredit teman', 'tarik tunai', 'gestun', 'gadai'],
-  piutang: ['piutang', 'minjemin', 'minjamin', 'meminjamkan', 'ngutangin', 'kasih pinjam', 'kasih utang', 'talangin', 'talangan', 'nalangin', 'dipinjam teman', 'utangin', 'pinjamkan']
-};
+// KATEGORI_KEYWORDS, KAMUS_NORMAL, VERBA_MASUK, VERBA_KELUAR -> KamusData.gs
+// Mesin klasifikasi (normalisasi, skor, kamus pengguna) -> Kamus.gs
 
 /** Panduan pemetaan -> teks prompt (dibuat dari KATEGORI_KEYWORDS, satu sumber). */
 function kategoriHintText() {
@@ -70,55 +51,56 @@ function kategoriHintText() {
   lines.push('Catatan "tiket": pesawat/kereta/bus = transport; konser/bioskop = hiburan.');
   lines.push('Utang/pinjaman: terima pinjaman = masuk kategori "utang"; bayar/lunasi utang = keluar kategori "utang". Meminjamkan ke orang = keluar "piutang"; dibayar balik = masuk "piutang".');
   lines.push('Cicilan/paylater/kartu kredit (kredivo, akulaku, shopee paylater, KPR) = "tagihan".');
+  lines.push('Menabung/beli emas/reksadana/saham = keluar "tabungan". Hasil investasi (dividen, bunga, profit) = masuk "investasi".');
+  lines.push('PEMASUKAN: gaji/gajian/upah = "gaji"; proyek/klien/jualan/usaha = "freelance"; THR/bonus/insentif/lembur = "bonus"; angpao/dikasih uang/menang undian = "hadiah"; refund/cashback/reimburse = "refund".');
   return lines.join('\n');
 }
 
-/** Tebak kategori dari teks via kata kunci (cocok per-kata). '' bila tak ada. */
+/** Tebak kategori dari teks via kamus (lihat Kamus.gs). '' bila tak ada. */
 function tebakKategori(text) {
-  var low = ' ' + String(text || '').toLowerCase() + ' ';
-  var cats = Object.keys(KATEGORI_KEYWORDS);
-  for (var i = 0; i < cats.length; i++) {
-    var kws = KATEGORI_KEYWORDS[cats[i]];
-    for (var j = 0; j < kws.length; j++) {
-      var kw = kws[j].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // escape regex
-      if (new RegExp('\\b' + kw + '\\b', 'i').test(low)) return cats[i];
-    }
-  }
-  return '';
+  var r = klasifikasi(text, '');
+  return r ? r.kategori : '';
 }
 
-/** Cari kategori dari teks: lewat kata kunci ATAU nama kategori persis (selain "lainnya"). '' bila tak ada. */
-function cariKategori(text) {
-  var kat = tebakKategori(text);
-  if (kat) return kat;
-  var toks = String(text).toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/);
-  for (var i = 0; i < toks.length; i++) {
-    if (toks[i].length >= 3 && toks[i] !== 'lainnya' &&
-        (isKategoriValid(toks[i], 'keluar') || isKategoriValid(toks[i], 'masuk'))) return toks[i];
-  }
-  return '';
+/** Cari kategori yang sah untuk intent (keluar/masuk/''), via kamus + nama kategori. '' bila tak ada. */
+function cariKategori(text, intent) {
+  var r = klasifikasi(text, intent || '');
+  return r ? r.kategori : '';
 }
 
 /**
- * Tentukan kategori final: utamakan kategori valid & spesifik dari AI;
- * bila kosong/'lainnya'/invalid, coba dari konteks (kata kunci / nama kategori); terakhir 'lainnya'.
+ * Tentukan kategori final:
+ *   1) ajaran pengguna (sheet Kamus) SELALU menang;
+ *   2) kategori AI yang sah & spesifik (bukan "lainnya");
+ *   3) tebakan kamus dari konteks (skor tertinggi, sah untuk intent);
+ *   4) terakhir "lainnya".
  */
 function normalisasiKategori(rawKat, intent, konteks) {
   var kat = String(rawKat || '').toLowerCase().trim();
+  var ajar = klasifikasi(konteks || '', intent, { hanyaPengguna: true });
+  if (ajar) return ajar.kategori;
   if (isKategoriValid(kat, intent) && kat !== 'lainnya') return kat;
-  var tebak = cariKategori(konteks || '');
-  if (tebak && isKategoriValid(tebak, intent)) return tebak;
+  var r = klasifikasi(konteks || '', intent);
+  if (r) return r.kategori;
   return isKategoriValid(kat, intent) ? kat : 'lainnya';
 }
 
-/** Parse nominal longgar untuk fallback: "2.502.500", "25rb", "1,5jt", "10k". null bila tak ada. */
+/** Uang gaul -> angka. */
+var UANG_GAUL = {
+  cepek: 100, gopek: 500, seceng: 1000, noceng: 2000, goceng: 5000, ceban: 10000, noban: 20000,
+  goban: 50000, gocap: 50000, cetiau: 1000000, sejuta: 1000000, sepuluhrb: 10000
+};
+
+/** Parse nominal longgar untuk fallback: "2.502.500", "25rb", "1,5jt", "10k", "goceng". null bila tak ada. */
 function parseNominalLoose(text) {
   var s = String(text || '').toLowerCase();
-  var m = s.match(/(\d[\d.,]*)\s*(juta|jt|ribu|rb|k)\b/);
+  var g = s.match(/\b(cepek|gopek|seceng|noceng|goceng|ceban|noban|goban|gocap|cetiau|sejuta)\b/);
+  var m = s.match(/(\d[\d.,]*)\s*(juta|jt|jeti|ribu|rebu|rbu|rb|k)\b/);
+  if (!m && g) return UANG_GAUL[g[1]];
   if (m) {
     var num = parseFloat(m[1].replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
     if (isNaN(num)) return null;
-    var v = Math.round(num * (/juta|jt/.test(m[2]) ? 1000000 : 1000));
+    var v = Math.round(num * (/juta|jt|jeti/.test(m[2]) ? 1000000 : 1000));
     return v > 0 ? v : null;
   }
   m = s.match(/\d[\d.,]*\d|\d+/);
@@ -126,7 +108,32 @@ function parseNominalLoose(text) {
     var cleaned = m[0].replace(/[.,]/g, '');
     if (/^\d+$/.test(cleaned)) { var n = parseInt(cleaned, 10); return n > 0 ? n : null; }
   }
-  return null;
+  return parseAngkaKata(s);
+}
+
+/** Angka dalam kata: "dua puluh lima ribu", "seratus lima puluh rebu", "satu setengah juta". null bila tak ada. */
+function parseAngkaKata(s) {
+  var DIGIT = { nol: 0, satu: 1, dua: 2, tiga: 3, empat: 4, lima: 5, enam: 6, tujuh: 7, delapan: 8, sembilan: 9 };
+  var toks = String(s || '').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/);
+  var total = 0, cur = 0, last = 0, mulai = false, skala = false;
+  for (var i = 0; i < toks.length; i++) {
+    var t = toks[i];
+    if (DIGIT.hasOwnProperty(t)) { cur += DIGIT[t]; last = DIGIT[t]; mulai = true; }
+    else if (t === 'sepuluh') { cur += 10; last = 0; mulai = true; }
+    else if (t === 'sebelas') { cur += 11; last = 0; mulai = true; }
+    else if (t === 'seratus') { cur += 100; last = 0; mulai = true; skala = true; }
+    else if (t === 'setengah') { cur += 0.5; last = 0; mulai = true; }
+    else if (t === 'belas' && mulai) { cur += 10; last = 0; }
+    else if (t === 'puluh' && mulai) { cur = cur - last + last * 10; last = 0; skala = true; }
+    else if (t === 'ratus' && mulai) { cur = cur - last + last * 100; last = 0; skala = true; }
+    else if (t === 'seribu') { total += 1000; mulai = true; skala = true; }
+    else if (/^(ribu|rebu|rb|rbu)$/.test(t) && mulai) { total += (cur || 1) * 1000; cur = 0; last = 0; skala = true; }
+    else if (/^(juta|jt)$/.test(t) && mulai) { total += (cur || 1) * 1000000; cur = 0; last = 0; skala = true; }
+    else if (mulai && skala) break; // angka selesai
+    else if (mulai) { total = 0; cur = 0; last = 0; mulai = false; } // "beli dua kopi" bukan nominal
+  }
+  var v = Math.round(total + cur);
+  return (skala && v >= 100) ? v : null;
 }
 
 /** Tipe kategori: 'masuk' bila kategori pemasukan, selain itu 'keluar'. */
@@ -141,11 +148,7 @@ function tipeKategori(kat) {
  * (mis. "rumah 2.502.500", "galon 25rb"). Return aksi keuangan atau null.
  */
 function tebakAksiKeuangan(text) {
-  var nominal = parseNominalLoose(text);
-  if (!nominal) return null;
-  var kat = cariKategori(text);
-  if (!kat) return null;
-  return { intent: tipeKategori(kat), nominal: nominal, kategori: kat, keterangan: '', sumber: 'bot-ai' };
+  return tebakAksiDeterministik(text); // Kamus.gs: arah dari kata kerja + kategori skor tertinggi
 }
 
 /**
@@ -216,7 +219,7 @@ function geminiParse(text) {
 
   var payload = {
     systemInstruction: { parts: [{ text: sys }] },
-    contents: [{ parts: [{ text: text }] }],
+    contents: [{ parts: [{ text: text + petunjukKamus(text) }] }],
     generationConfig: {
       responseMimeType: 'application/json',
       responseSchema: ACTION_SCHEMA,
@@ -533,15 +536,24 @@ function handleViewShortcut(text, chatId) {
   // SALDO — konservatif agar tak bentrok dgn "uang masuk ...".
   if (/\bsaldo\b/.test(low) || /\b(uang|duit)ku\b/.test(low)) { cmdSaldo(chatId); return true; }
 
-  // KATEGORI.
-  if (/\bkategori\b/.test(low)) { cmdKategori([], chatId); return true; }
+  // KATEGORI: daftar, atau "X masuk kategori apa?" (identifikasi).
+  // Perintah UBAH kategori ("ganti kategori terakhir ke transport") dibiarkan lewat ke AI (intent edit).
+  if (/\bkategori(nya)?\b/.test(low) && !/\b(ubah|ubahin|ganti|gantiin|edit|pindah|pindahin|koreksi|benerin|set|jadi|jadiin)\b/.test(low)) {
+    var term = String(text).toLowerCase().replace(/[?!.,:;"']/g, ' ')
+      .replace(/\b(masuk|masuknya|termasuk|kategori|kategorinya|apa|apaan|mana|yang|yg|ya|dong|sih|itu|ini|ke|di|lihat|liat|cek|daftar|list|semua|kah|nih|deh|tuh|tolong|bot|kalau|kalo|klo|bisa)\b/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    cmdKategori(term ? term.split(' ') : [], chatId);
+    return true;
+  }
 
   // BUDGET (lihat daftar) & EXPORT/BACKUP.
   if (/\b(budget|anggaran)\b/.test(low) && !/\d/.test(low)) { cmdBudget([], chatId); return true; }
   if (/\b(export|ekspor|backup|cadangkan|cadangan)\b/.test(low)) { cmdExport(chatId); return true; }
 
-  // RIWAYAT transaksi terakhir.
-  if (/\briwayat\b/.test(low) || (/\btransaksi\b/.test(low) && /\b(terakhir|terbaru|lihat|liat|cek)\b/.test(low))) { cmdRiwayat([], chatId); return true; }
+  // RIWAYAT transaksi terakhir — HANYA melihat. Perintah aksi ("hapus/ganti kategori transaksi terakhir")
+  // dibiarkan lewat ke AI (intent hapus/edit) agar tidak dibajak jadi daftar riwayat.
+  var aksiUbah = /\b(hapus|hapusin|apus|apusin|delete|del|buang|ubah|ubahin|ganti|gantiin|edit|koreksi|benerin|pindah|pindahin|jadi|jadiin|set)\b/.test(low);
+  if (!aksiUbah && (/\briwayat\b/.test(low) || (/\btransaksi\b/.test(low) && /\b(terakhir|terbaru|lihat|liat|cek)\b/.test(low)))) { cmdRiwayat([], chatId); return true; }
 
   // HAPUS LOG.
   if (/\blog\b/.test(low) && /\b(hapus|bersih|bersihkan|kosongkan|clear)\b/.test(low)) { cmdHapusLog(chatId); return true; }
@@ -569,7 +581,7 @@ function cmdKategori(args, chatId) {
   if (arg) { // /kategori <nama> -> contoh kata kunci
     var ada = false;
     for (var i = 1; i < rows.length; i++) { if (String(rows[i][0]).toLowerCase() === arg) { ada = true; break; } }
-    if (!ada) { sendMessage(chatId, '❌ Kategori "' + arg + '" tidak ada. Ketik /kategori untuk daftar.'); return; }
+    if (!ada) { jelaskanKata(arg, chatId); return; } // bukan nama kategori -> "kata ini masuk kategori apa?"
     var kws = (typeof KATEGORI_KEYWORDS !== 'undefined' && KATEGORI_KEYWORDS[arg]) ? KATEGORI_KEYWORDS[arg] : [];
     if (kws.length) sendMessage(chatId, '🏷️ <b>Contoh kata kunci "' + htmlEsc(arg) + '"</b>\n' + htmlEsc(kws.slice(0, 40).join(', ')) + (kws.length > 40 ? ', dll' : ''), { html: true });
     else sendMessage(chatId, '🏷️ Kategori "' + htmlEsc(arg) + '" ada (belum punya kata kunci otomatis). Sebut namanya langsung saat mencatat, mis. "' + htmlEsc(arg) + ' 50rb".', { html: true });
@@ -588,7 +600,9 @@ function cmdKategori(args, chatId) {
     '💸 <b>Pengeluaran (' + keluar.length + ')</b>', htmlEsc(keluar.join(', ')) || '-',
     '', '💰 <b>Pemasukan (' + masuk.length + ')</b>', htmlEsc(masuk.join(', ')) || '-'];
   if (both.length) out.push('', '↔️ <b>Keduanya</b>: ' + htmlEsc(both.join(', ')));
-  out.push('━━━━━━━━━━━━━━', '<i>Ketik /kategori &lt;nama&gt; untuk contoh kata kunci (mis. /kategori rumah).</i>');
+  out.push('━━━━━━━━━━━━━━',
+    '<i>/kategori &lt;nama&gt; → contoh kata kunci · /kategori &lt;kata&gt; → kata itu masuk kategori apa</i>',
+    '<i>/cek &lt;kalimat&gt; → lihat cara bot memahami · /kamus → ajari kata baru</i>');
   sendMessage(chatId, out.join('\n'), { html: true });
 }
 

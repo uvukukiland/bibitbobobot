@@ -34,6 +34,10 @@ function route(text, chatId) {
     case '/catatan': cmdCatatan(args, chatId); break;
     case '/agenda': cmdAgenda(chatId); break;
     case '/kategori': cmdKategori(args, chatId); break;
+    case '/kamus':  cmdKamus(args, chatId); break;
+    case '/cek':
+    case '/tes':    cmdCek(args, chatId); break;
+    case '/lainnya': cmdLainnya(args, chatId); break;
     case '/budget': cmdBudget(args, chatId); break;
     case '/export':
     case '/backup': cmdExport(chatId); break;
@@ -87,6 +91,12 @@ function helpText() {
     '• "gaji masuk 5jt"  atau  /masuk [nominal] [kategori]',
     '• /saldo  ·  /rekap [YYYY-MM | YYYY]  ·  /kategori [nama]',
     '• /budget [kategori] [nominal]  ·  /export (backup .xlsx)',
+    '',
+    '🧠 <b>Kamus &amp; Pemahaman</b>',
+    '• /cek [kalimat] → lihat bot memahaminya sbg apa (tidak disimpan)',
+    '• /kategori [kata] → kata itu masuk kategori apa',
+    '• /kamus [kata] [kategori] → ajari kata baru · /kamus (lihat)',
+    '• /lainnya → transaksi "lainnya" + saran · /lainnya perbaiki',
     '',
     '✅ <b>Tugas &amp; Agenda</b>',
     '• /tugas [teks] [#YYYY-MM-DD]  ·  /daftar [semua]',

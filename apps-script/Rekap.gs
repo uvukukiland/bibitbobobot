@@ -401,6 +401,7 @@ function editKeuanganById(idRaw, field, nilai, chatId) {
 function applyKeuanganEdit(s, rowNum, field, nilai, chatId) {
   if (!String(nilai).trim()) { sendMessage(chatId, '❌ Nilai baru kosong.'); return; }
   var last = rowNum;
+  var dipelajari = '';
   var row = s.getRange(last, 1, 1, 6).getValues()[0]; // [waktu,tipe,nominal,kategori,ket,sumber]
 
   switch (field) {
@@ -413,7 +414,13 @@ function applyKeuanganEdit(s, rowNum, field, nilai, chatId) {
       if (!isKategoriValid(kat, String(row[1]).toLowerCase())) {
         sendMessage(chatId, '❌ Kategori "' + kat + '" tidak dikenal untuk ' + row[1] + '. ' + KATEGORI_HINT); return;
       }
-      s.getRange(last, 4).setValue(kat); row[3] = kat; break;
+      s.getRange(last, 4).setValue(kat); row[3] = kat;
+      // Belajar dari koreksi: keterangan transaksi ini -> kategori baru (kamus pengguna).
+      var inti = intiKeterangan(row[4]);
+      if (inti && kat !== 'lainnya') {
+        try { if (ingatKamus(inti, kat) === 'baru') dipelajari = inti; } catch (e) { logEvent('WARN', 'kamus_belajar_gagal', String(e)); }
+      }
+      break;
     case 'keterangan':
       s.getRange(last, 5).setValue(nilai); row[4] = nilai; break;
     case 'tipe':
@@ -434,6 +441,7 @@ function applyKeuanganEdit(s, rowNum, field, nilai, chatId) {
   logEvent('INFO', 'keuangan_edited', field);
   sendMessage(chatId, '✏️ Diperbarui: ' + String(row[1]).toLowerCase() + ' Rp' + formatRupiah(Number(row[2]) || 0) +
     ' · ' + (row[3] || '-') + (row[4] ? ' · ' + row[4] : '') + tanggalSuffix(row[0]));
+  if (dipelajari) sendMessage(chatId, '📚 Saya ingat: "' + dipelajari + '" → ' + row[3] + '. Lain kali langsung masuk kategori itu.');
   refreshDashboard();
 }
 
